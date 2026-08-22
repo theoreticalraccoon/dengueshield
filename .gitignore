@@ -1,5 +1,7 @@
-# Raw datasets (1.2 GB) - downloaded by the pipeline, never needed by the app
-data/raw/
+# Raw datasets (1.2 GB) - downloaded by the pipeline, never needed by the app.
+# Must be data/raw/* rather than data/raw/ : git does not descend into an
+# ignored DIRECTORY, so the negations below would never be evaluated.
+data/raw/*
 *.pyc
 __pycache__/
 .venv/
