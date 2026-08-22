@@ -176,6 +176,8 @@ def load_reports():
         "emergence": pd.read_csv(em) if em.exists() else None,
         "delay": _csv("reporting_delay_stress.csv"),
         "freshness": _json("data_freshness.json"),
+        "situation": _csv("srilanka_latest_situation.csv"),
+        "sit_meta": _json("situation_freshness.json"),
     }
 
 
@@ -435,9 +437,12 @@ elif screen == "Outbreak forecast":
             '<div class="stamp">'
             f'<div><span class="k">Data last updated</span>'
             f'<span class="v">{pd.Timestamp(updated).strftime("%d %b %Y") if updated else "unknown"}</span></div>'
-            f'<div><span class="k">Surveillance week</span>'
+            f'<div><span class="k">Forecast surveillance week</span>'
             f'<span class="v">{wk.strftime("%d %b %Y")}</span></div>'
-            '</div>', unsafe_allow_html=True)
+            + (f'<div><span class="k">Latest reported week</span>'
+               f'<span class="v">{pd.Timestamp(sm["latest_week_start"]).strftime("%d %b %Y")}</span></div>'
+               if (sm := R["sit_meta"]) else "")
+            + '</div>', unsafe_allow_html=True)
 
         d = dual.copy()
         d["status"] = np.where(d.currently_in_outbreak, "In outbreak", "Not in outbreak")
@@ -446,10 +451,83 @@ elif screen == "Outbreak forecast":
         d["band"] = pd.cut(d.headline_risk, [-0.01, 0.25, 0.5, 0.75, 1.01],
                            labels=["Low", "Moderate", "High", "Very High"])
 
-        k = st.columns(5)
-        k[0].metric("In outbreak", f"{int(d.currently_in_outbreak.sum())} / {len(d)}")
-        for i, band in enumerate(["Very High", "High", "Moderate", "Low"]):
-            k[i + 1].metric(band, int((d.band == band).sum()))
+        # ---- triage: the answer the page exists to give ----
+        emg_thr = (M["sl_emergence"] or {}).get("threshold", 0.5)
+        d["triage"] = np.select(
+            [d.currently_in_outbreak,
+             d.emergence_risk.notna() & (d.emergence_risk >= emg_thr),
+             d.emergence_risk.notna()],
+            ["Outbreak now", "Outbreak likely", "Clear"],
+            default="Not assessable")
+        TRIAGE = {
+            "Outbreak now": (BAND_COLOR["Very High"],
+                             "incidence is at or above the epidemic threshold"),
+            "Outbreak likely": (BAND_COLOR["High"],
+                                f"quiet now, but emergence risk is at or above {emg_thr:.0%}"),
+            "Clear": (BAND_COLOR["Low"], "quiet, and no emergence signal"),
+            "Not assessable": (FAINT,
+                               "out of outbreak too recently for the emergence model, "
+                               "which needs two consecutive quiet weeks"),
+        }
+        order = ["Outbreak now", "Outbreak likely", "Clear", "Not assessable"]
+        counts = {g: int((d.triage == g).sum()) for g in order}
+
+        # proportional bar - the whole country in one line
+        bar = go.Figure()
+        for g in order:
+            if not counts[g]:
+                continue
+            bar.add_trace(go.Bar(
+                x=[counts[g]], y=[""], orientation="h", name=f"{g} ({counts[g]})",
+                marker_color=TRIAGE[g][0], hovertemplate=f"{g}: {counts[g]} districts<extra></extra>",
+                text=[str(counts[g])], textposition="inside",
+                insidetextfont={"color": "white", "family": "IBM Plex Mono", "size": 13}))
+        bar.update_layout(barmode="stack", height=96, showlegend=True,
+                          legend={"orientation": "h", "y": -0.85, "x": 0, "title": ""},
+                          margin={"t": 6, "b": 0, "l": 0, "r": 0},
+                          paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+                          font={"family": "Public Sans, sans-serif", "color": MUTED},
+                          xaxis={"visible": False}, yaxis={"visible": False})
+        st.plotly_chart(bar, width="stretch")
+
+        cols = st.columns(4)
+        for col, g in zip(cols, order, strict=True):
+            colour, why = TRIAGE[g]
+            rows = d[d.triage == g].sort_values("headline_risk", ascending=False)
+            with col:
+                st.markdown(
+                    f'<div style="border-top:3px solid {colour};padding-top:.6rem">'
+                    f'<span class="eyebrow" style="color:{colour}">{g}</span>'
+                    f'<div style="font-family:\'IBM Plex Mono\';font-size:1.9rem;'
+                    f'color:{INK};line-height:1.1">{counts[g]}</div>'
+                    f'<p class="note" style="font-size:.8rem;margin-top:.2rem">{why}</p>'
+                    "</div>", unsafe_allow_html=True)
+                if rows.empty:
+                    st.markdown('<p class="note" style="font-size:.82rem">'
+                                "<em>No districts.</em></p>", unsafe_allow_html=True)
+                else:
+                    listing = "".join(
+                        f'<div style="display:flex;justify-content:space-between;'
+                        f'gap:.6rem;font-size:.84rem;padding:.16rem 0;'
+                        f'border-bottom:1px solid {RULE}">'
+                        f'<span>{r.district}</span>'
+                        f'<span style="font-family:\'IBM Plex Mono\';color:{MUTED}">'
+                        f'{r.casos:,.0f}</span></div>'
+                        for r in rows.itertuples())
+                    st.markdown(listing, unsafe_allow_html=True)
+                    st.markdown('<p class="note" style="font-size:.74rem;'
+                                'margin-top:.35rem">cases this week</p>',
+                                unsafe_allow_html=True)
+
+        if counts["Outbreak likely"] == 0:
+            st.markdown(
+                '<p class="note" style="margin-top:.8rem">No district is currently '
+                "flagged for a <em>new</em> outbreak. With most of the country already "
+                "above the threshold there is little quiet ground left to flare, and the "
+                "districts that recently subsided are not yet eligible for the emergence "
+                "model.</p>", unsafe_allow_html=True)
+
+        st.markdown("---")
 
         left, right = st.columns([3, 2])
         with left:
