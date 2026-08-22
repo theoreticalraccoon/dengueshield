@@ -91,12 +91,14 @@ python -m uv pip install --python .venv/Scripts/python.exe torch \
 .venv/Scripts/python.exe -m streamlit run app.py
 ```
 
-Five screens: **Dashboard** (four tasks + decision-support pathway) · **Guided demo**
-(one realistic patient → district → decision, in three steps) · **Patient assessment**
-(quick 6-value entry or full CBC) · **Outbreak forecast** (autonomous district
-forecasts showing *both* continuation and emergence risk) · **Model evidence**
-(validation, emergence, calibration, explainability, generalization, data audit —
-including the weaknesses).
+Three screens, the two tools first:
+
+- **Patient assessment** — quick 6-value entry or full CBC, plus complication risk.
+  Optionally name the patient's district and it folds in local outbreak context.
+- **Outbreak forecast** — autonomous district forecasts showing *both* continuation
+  and emergence risk, on a map and in a ranked table.
+- **About the models** — four sub-tabs (what it does · how well it works · where it
+  fails · data & methods). Conclusions first, raw tables behind expanders.
 
 ## Reproduce the pipeline
 

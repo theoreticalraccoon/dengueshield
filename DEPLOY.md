@@ -8,7 +8,7 @@ by `.gitignore` — the app only loads pre-trained models and pre-computed repor
 
 | Path | Purpose | Size |
 |---|---|---|
-| `app.py` | the Streamlit application | 31 KB |
+| `app.py` | the Streamlit application (3 screens) | 26 KB |
 | `models/*.joblib` | screening, complication, continuation, emergence models | 24 MB |
 | `reports/` | pre-computed metrics, forecasts, audit tables | 1.5 MB |
 | `data/processed/` | district history for the trend charts | 1.9 MB |
@@ -133,7 +133,7 @@ app never downloads the raw datasets.
 
 ## Pre-flight checklist
 
-- [x] All five screens render without exception (verified via `AppTest`)
+- [x] All three screens render without exception (verified via `AppTest`)
 - [x] Both assessment buttons produce predictions
 - [x] `ruff check` passes with zero errors
 - [x] Runtime deps pinned in `requirements.txt` (no torch/shap/xgboost)
