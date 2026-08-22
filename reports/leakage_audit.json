@@ -1,0 +1,68 @@
+{
+  "panel_integrity": {
+    "as_published": {
+      "label": "as published",
+      "rows": 569481,
+      "clean_7day_steps": 559998,
+      "duplicate_municipality_week_rows": 8107,
+      "missing_week_gaps_14day": 677,
+      "weekday_of_data_iniSE": [
+        "Sunday"
+      ]
+    },
+    "after_repair": {
+      "label": "after recompute_dynamics()",
+      "rows": 561374,
+      "clean_7day_steps": 559998,
+      "duplicate_municipality_week_rows": 0,
+      "missing_week_gaps_14day": 677,
+      "weekday_of_data_iniSE": [
+        "Sunday"
+      ]
+    }
+  },
+  "worked_example": {
+    "municipality": "Picos",
+    "state": "PI",
+    "feature_week_start": "2024-03-03",
+    "feature_cutoff": "2024-03-09",
+    "forecast_issued": "2024-03-10",
+    "target_week_start": "2024-03-17",
+    "target_week_end": "2024-03-23",
+    "lead_time_days": 14,
+    "label": 0
+  },
+  "contamination_checks": {
+    "casos_lag_1": 1.0,
+    "casos_lag_2": 1.0,
+    "casos_lag_4": 1.0,
+    "casos_lag_8": 1.0,
+    "casos_roll4_mean_is_backward_shifted": 1.0
+  },
+  "reporting_delay": [
+    {
+      "delay_weeks": 0,
+      "n_test": 66660,
+      "effective_lead_days": 14,
+      "pr_auc": 0.9608055702595955,
+      "accuracy": 0.9666216621662166,
+      "recall": 0.9003724394785847
+    },
+    {
+      "delay_weeks": 1,
+      "n_test": 66660,
+      "effective_lead_days": 21,
+      "pr_auc": 0.9393690584392549,
+      "accuracy": 0.9572307230723073,
+      "recall": 0.8739913097454997
+    },
+    {
+      "delay_weeks": 2,
+      "n_test": 66660,
+      "effective_lead_days": 28,
+      "pr_auc": 0.9160028356508098,
+      "accuracy": 0.9500600060006,
+      "recall": 0.8379888268156425
+    }
+  ]
+}

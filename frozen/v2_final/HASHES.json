@@ -1,0 +1,290 @@
+{
+  "code/app.py": {
+    "sha256": "bb5c6a96adf5f09c1cadd44cb13ea07f00f5ae7165c3f6a1efea87f19ad0ea24",
+    "bytes": 30706
+  },
+  "code/calibration_and_errors.py": {
+    "sha256": "74ffcd719ca088cf36f654ab398d2e19db334ba207832ce746ae60fce35f31dc",
+    "bytes": 9902
+  },
+  "code/dengue/ablation.py": {
+    "sha256": "4398611271a32c07c0123e5e81cd5519090d3ca65fe87ee8f7a5586a5b42f678",
+    "bytes": 7015
+  },
+  "code/dengue/audit.py": {
+    "sha256": "8aea7bf81a534357372f32514a8338251717121a920981cca5a99299fffbb8f8",
+    "bytes": 3571
+  },
+  "code/dengue/datasets.py": {
+    "sha256": "decaec660680cafe7c3386ce4fe35d8663d6ca9607427aac53dbfb10d344d30c",
+    "bytes": 3203
+  },
+  "code/dengue/lstm_outbreak.py": {
+    "sha256": "2871ba7502d1c54e91848afa75dc35e390e8ec127f055a8b30158421bccbadcb",
+    "bytes": 5046
+  },
+  "code/dengue/model1_screening.py": {
+    "sha256": "d2de84d07c59cae7d45c704be4306a1693526de196e83ed1ebb8f41caddfbfb9",
+    "bytes": 7391
+  },
+  "code/dengue/model2_outbreak.py": {
+    "sha256": "6198d1d8ffc5b1ef4085295fe16398426c8713a80b5578f0e529d22457a62576",
+    "bytes": 5397
+  },
+  "code/dengue/srilanka.py": {
+    "sha256": "7a19e0952e29ab11d9b4590f241484dc6bc54f72efda507b678ef0ef2fdcea23",
+    "bytes": 11732
+  },
+  "code/finalize_model1.py": {
+    "sha256": "5273b3158e6b79bc1ec1998d8c5f8a7319f67c2778b352eb0f6d7202fad169cd",
+    "bytes": 4182
+  },
+  "code/finalize_peds.py": {
+    "sha256": "eeff4609deba126ed82067c15265411183cd117011b5da499ceac08837cedd2e",
+    "bytes": 1850
+  },
+  "code/finalize_srilanka.py": {
+    "sha256": "ba7ce967b11a5a4161d226eeda426383f6f9036dbbcd6aaec5d569fa9fb7890c",
+    "bytes": 4471
+  },
+  "code/freeze_v2.py": {
+    "sha256": "550b993b147ea1a601b6e8a1063fa1c4af302eb675cd755b0acdf3795e10cbbd",
+    "bytes": 9451
+  },
+  "code/robustness_model2.py": {
+    "sha256": "12cf4473150825f178b2d4b8b56a15dfc72fe3e3893c031b383d2da958635944",
+    "bytes": 4950
+  },
+  "code/run_ablation.py": {
+    "sha256": "444efd322b31c092e9615df02099a933eb18be64a63d63cfed1e1d614e28afa6",
+    "bytes": 2552
+  },
+  "code/run_audit.py": {
+    "sha256": "11a95ed5897c5435787240f81e942bac16b0c18e72f04331098bbc04401c046b",
+    "bytes": 1594
+  },
+  "code/shap_model2.py": {
+    "sha256": "a3d440bcd2ad2ff5ab5f1f847a11184d5bebfa0aa8679a0330b20116a93a18ed",
+    "bytes": 4563
+  },
+  "code/spatial_and_ablation.py": {
+    "sha256": "e51292bec244981e214978a1f7bc240a7357bc142ebd487ecbfa09623aed93ef",
+    "bytes": 9094
+  },
+  "code/train_lstm.py": {
+    "sha256": "80e000666f55a620d08e4b158d9ec4f9e0ef1a15847c88c3664ca560182bc917",
+    "bytes": 3818
+  },
+  "code/train_model1.py": {
+    "sha256": "53681b86b535605be396a7c2b1fb5e69549f5059ef6e0bc38469933c12b884dc",
+    "bytes": 2777
+  },
+  "code/train_model2.py": {
+    "sha256": "4d1ba946ca07d5f55563d134e5190a81868bb901b328eb5b0119d4f28dcbe446",
+    "bytes": 4584
+  },
+  "code/transfer_srilanka.py": {
+    "sha256": "298194fd271300eba054b22a813875d3763291165b9c0e83bc0b719192e4be09",
+    "bytes": 7546
+  },
+  "code/transfer_test.py": {
+    "sha256": "59405d7cf2bc4c771da194c93f064a68ecbfbe61b748e5c33e3860c6bf4b01a5",
+    "bytes": 3014
+  },
+  "MANIFEST.json": {
+    "sha256": "6bc0cf1fc40a573f9ed26140a3415e3be0662463a151f162c0debedff39e65aa",
+    "bytes": 49235
+  },
+  "models/model1_screening.joblib": {
+    "sha256": "52a06dd78e70bd262a606916fc0509db41428735de5cad890e9a9f8688fe6fa0",
+    "bytes": 1646202
+  },
+  "models/model2_lstm.pt": {
+    "sha256": "3f07465bd30248bef219dae55045d1438a16eafc8ed7f495ba2f035c4f8b38f6",
+    "bytes": 994505
+  },
+  "models/model2_lstm_scalers.joblib": {
+    "sha256": "789a19747e8c8e72896ec6fe51905dfc83ac0e09e791cea8bb3af5be22aaf819",
+    "bytes": 4369
+  },
+  "models/model2_outbreak.joblib": {
+    "sha256": "850f3d05c60ee7b793410d187fc902feee32588ee515f22046f1f961bdc93014",
+    "bytes": 16755864
+  },
+  "models/peds_complications.joblib": {
+    "sha256": "9c1957d638bcd5302ab8f0a05cf76c340c1b89797d1f15b3996620cc3c1a19e6",
+    "bytes": 907084
+  },
+  "models/srilanka_outbreak.joblib": {
+    "sha256": "4e2ebb70990a88c7476927e0b4b12b4926a1e464bfc7b3383ddbd43019c5fa12",
+    "bytes": 3442370
+  },
+  "README.md": {
+    "sha256": "a21c9d3df5107e5a93d1a8524bde7b663f80a0b8a70aedb54b71e278b89780c6",
+    "bytes": 6629
+  },
+  "REPORT.md": {
+    "sha256": "cdf61929786853f00134d808293a209ff1dbe2c8e7eda83196c0337ea07e4bf8",
+    "bytes": 19422
+  },
+  "reports/ablation_hematology.csv": {
+    "sha256": "1954f38f1877806567709d492f47e3be0b16f179323d1e38a088413f400794ee",
+    "bytes": 807
+  },
+  "reports/ablation_peds.csv": {
+    "sha256": "e226b004cded215fa10587c04128656f621b71b4cc8571063edf74d7a2784b70",
+    "bytes": 2330
+  },
+  "reports/ablation_summary.json": {
+    "sha256": "10c00c4a662d6f4e4c90a33ff5f275307532627fa5a660ea4765e0541901c01b",
+    "bytes": 8168
+  },
+  "reports/dataset_audit.csv": {
+    "sha256": "b48e0eed931890d60ecd405315e5c7a8f5a2f09c0d3ba406cf6cc930363b9670",
+    "bytes": 834
+  },
+  "reports/model1_cv_results.csv": {
+    "sha256": "7c5813fad7cba9998e5f6fd61ea9f264051e78c177b6b2fd36f458b30ade404f",
+    "bytes": 1534
+  },
+  "reports/model1_final.json": {
+    "sha256": "d74b5033120d75c9e748b673740978d6ec948d0f1e83513147c570c7dd3cbfe2",
+    "bytes": 1092
+  },
+  "reports/model1_oof.npz": {
+    "sha256": "3281efce49ba47b1bb989ae775159265c343ab793732cdd365499bd3932a58e7",
+    "bytes": 206768
+  },
+  "reports/model1_oof_calibrated.npy": {
+    "sha256": "e1544873ca88ea2a3cc56654003c52c15562031df60a6cb5c58d5cadfd6a7839",
+    "bytes": 12216
+  },
+  "reports/model1_operating_points.json": {
+    "sha256": "8b22611747260bf7360358a4c1dd17ecbe59685b3c96d2736a81ff63068d6237",
+    "bytes": 936
+  },
+  "reports/model1_summary.json": {
+    "sha256": "2fbc9e570565638b815567906e378eee741b0e75ba743165e5a199ed3c3e62d0",
+    "bytes": 3104
+  },
+  "reports/model2_calibration_errors.json": {
+    "sha256": "6c56add5734d0994b878b0635d339db9b21833197e247b64f05944475e31ab25",
+    "bytes": 4914
+  },
+  "reports/model2_errors_by_state.csv": {
+    "sha256": "0d03ace3bd60926b08b209517afdf01c4e6bc14b1c2c7201c73c423cfb99f75c",
+    "bytes": 1538
+  },
+  "reports/model2_feature_importance.csv": {
+    "sha256": "002ec93c2f1cf22940a26e06875545b00ff24b517986aad5953ed64abde5abc1",
+    "bytes": 1100
+  },
+  "reports/model2_headtohead.csv": {
+    "sha256": "c27e9dee5a977bac42a7478ef1629dfa85f14a1aaa9cf942873964af997842de",
+    "bytes": 922
+  },
+  "reports/model2_headtohead.json": {
+    "sha256": "f50983d799359186a7f6d7b5e1bc95d02be19f475cfbea4fd85fc1fce3ad86b6",
+    "bytes": 1656
+  },
+  "reports/model2_information_ablation.csv": {
+    "sha256": "0a65b253f984dc7a33eb5d7481fdc95d3450209b68ccfda732a5558faf2452df",
+    "bytes": 931
+  },
+  "reports/model2_lstm.json": {
+    "sha256": "295dfe576f9c5d9ddcd91b365cb0e10749519bf185d7656b29f72172a10efa0b",
+    "bytes": 399
+  },
+  "reports/model2_lstm_test_preds.npz": {
+    "sha256": "3726ffcf17c11bc874a4ce9dd5c8ea005e422d3a3f2e4889c7896852cefebb5c",
+    "bytes": 898328
+  },
+  "reports/model2_reliability.png": {
+    "sha256": "00ba9fbbbbf8bc7be326def9f083709e1d30ff725c53a80c1a029e8330279c8f",
+    "bytes": 76863
+  },
+  "reports/model2_reliability_calibrated.csv": {
+    "sha256": "445712f87ab76838eab9fd764b6652e45fed846d9dea86e154917e7bcd25617a",
+    "bytes": 407
+  },
+  "reports/model2_reliability_raw.csv": {
+    "sha256": "5ecfc308ca82321352a7027df75b9f806285006bf6e71c463fa1f47e3d19c193",
+    "bytes": 567
+  },
+  "reports/model2_results.csv": {
+    "sha256": "89aef4ea3647887144dfb0243850de724981716a097648a1bf6ad6f0e2ae237e",
+    "bytes": 896
+  },
+  "reports/model2_robustness.json": {
+    "sha256": "d11ca63eb9efbd7e6435521c6612c5ccd78582863c8a10566c78644d1f08bc27",
+    "bytes": 5317
+  },
+  "reports/model2_shap.json": {
+    "sha256": "f67c96ec6ecc396974cb3fa3acc5ccab4654deecf5903ae80b076686b110b93f",
+    "bytes": 2851
+  },
+  "reports/model2_shap_drivers.csv": {
+    "sha256": "3dd1399053407fed339c3e1fc41ec8bd46adc660caae4b900c7156a6fe372e91",
+    "bytes": 576
+  },
+  "reports/model2_shap_drivers.png": {
+    "sha256": "18500a18f340306077421a9e9f1819cd1b96f18c3348e61e7b2297ce58783e79",
+    "bytes": 39253
+  },
+  "reports/model2_shap_importance.csv": {
+    "sha256": "dedaf377e1a0ea6ec2ff12b095823ccbdd72960236e40cb4ed4d1922f3c541b6",
+    "bytes": 1986
+  },
+  "reports/model2_shap_summary.png": {
+    "sha256": "a91ec0301dbed5db38d22be211d316ea95bc9b28588e654dd2310ad9c8e34604",
+    "bytes": 146427
+  },
+  "reports/model2_spatial_ablation.json": {
+    "sha256": "b0e262fed4843115648e576f39954628c7493fafabb7296f3a9f8868347350ac",
+    "bytes": 6649
+  },
+  "reports/model2_spatial_holdout.csv": {
+    "sha256": "2e242bb5ce3e59f980fb1f440d2e94773297d29fa900072f74695bc436bb6005",
+    "bytes": 2098
+  },
+  "reports/model2_summary.json": {
+    "sha256": "ab02bdd9823ca316c880c54632e93443d3e2494fa32b7d24f087e3eed48a9527",
+    "bytes": 1716
+  },
+  "reports/model2_worst_false_negatives.csv": {
+    "sha256": "d31961f1095f1f7102e708949f0fc04a5efc4283d166af0b3fc4294a58743f3c",
+    "bytes": 1080
+  },
+  "reports/peds_final.json": {
+    "sha256": "2b7ca353a79458380285a9ba2391372a1eabe9b32036dc8150c16a9f9c5c5673",
+    "bytes": 393
+  },
+  "reports/peds_oof.npy": {
+    "sha256": "965c07852ae9dd9ac114219444b0db5c7d9640a975611fa2ac4f31f9e7feacc7",
+    "bytes": 2552
+  },
+  "reports/srilanka_calibration.json": {
+    "sha256": "683f94d2cb2bc2ddb0318cd5f4200b09df90987d487ef7b762630ac1c459c918",
+    "bytes": 151
+  },
+  "reports/srilanka_current_risk.csv": {
+    "sha256": "189927abc709a4d320bbf887a4a7a4bda90e91f17c54c644ab68bfcede55716d",
+    "bytes": 3815
+  },
+  "reports/srilanka_feature_importance.csv": {
+    "sha256": "6520ec070b6b74671fba05bab64de2409a3f08560194d5fe961b7ffa9fed1b6f",
+    "bytes": 1177
+  },
+  "reports/srilanka_transfer.csv": {
+    "sha256": "63102155503aa4be603e3b7de00436256f5c98b0f8f3d089a26d66d9ab3c9df8",
+    "bytes": 1216
+  },
+  "reports/srilanka_transfer.json": {
+    "sha256": "f6dea26d32847131d53c73903790fda38f76fee1a3ed6d1b36b58947e51156ad",
+    "bytes": 2383
+  },
+  "reports/transfer_auc.csv": {
+    "sha256": "bef4ccffe82013b52d62138c44c9f797fe2bf7822fb80b565b9e5b0ba9c0abfc",
+    "bytes": 411
+  }
+}

@@ -1,0 +1,39 @@
+{
+  "trivial_baseline": 0.684976836532098,
+  "at_0.5": {
+    "threshold": 0.5,
+    "accuracy": 0.7617471872931834,
+    "sensitivity": 0.9729468599033816,
+    "specificity": 0.3025210084033613,
+    "ppv": 0.7520537714712472,
+    "npv": 0.8372093023255814,
+    "balanced_accuracy": 0.6377339341533714,
+    "f1": 0.848357203032856,
+    "roc_auc": 0.6811218690374701,
+    "pr_auc": 0.7789974607608071,
+    "brier": 0.18038175024376477
+  },
+  "at_sens90": {
+    "threshold": 0.15217,
+    "accuracy": 0.684976836532098,
+    "sensitivity": 1.0,
+    "specificity": 0.0,
+    "ppv": 0.684976836532098,
+    "npv": 0.0,
+    "balanced_accuracy": 0.5,
+    "f1": 0.8130400628436764,
+    "roc_auc": 0.6811218690374701,
+    "pr_auc": 0.7789974607608071,
+    "brier": 0.18038175024376477
+  },
+  "best_params": {
+    "clf__subsample_freq": "1",
+    "clf__subsample": "0.85",
+    "clf__reg_lambda": "1",
+    "clf__num_leaves": "7",
+    "clf__n_estimators": "300",
+    "clf__min_child_samples": "20",
+    "clf__learning_rate": "0.01",
+    "clf__colsample_bytree": "0.8"
+  }
+}

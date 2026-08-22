@@ -1,0 +1,223 @@
+{
+  "spatial": [
+    {
+      "condition": "A_temporal_seen_municipalities",
+      "roc_auc": 0.9920552092683983,
+      "pr_auc": 0.9623335962870759,
+      "accuracy": 0.9676996197718631,
+      "recall": 0.9012572027239393,
+      "precision": 0.8792640858566501,
+      "f1": 0.8901248140723016,
+      "brier": 0.02552646001348801,
+      "n_test": 52600,
+      "test_prevalence": 0.14517110266159697,
+      "trivial_accuracy": 0.8548288973384031
+    },
+    {
+      "condition": "B_spatiotemporal_unseen_municipalities",
+      "roc_auc": 0.9901034415311029,
+      "pr_auc": 0.9547686790288232,
+      "accuracy": 0.964776119402985,
+      "recall": 0.8843813387423936,
+      "precision": 0.8772635814889336,
+      "f1": 0.8808080808080808,
+      "brier": 0.027966525618547906,
+      "n_test": 13400,
+      "test_prevalence": 0.1471641791044776,
+      "trivial_accuracy": 0.8528358208955225
+    },
+    {
+      "condition": "C_spatial_only_unseen_municipalities",
+      "roc_auc": 0.9932029640241665,
+      "pr_auc": 0.8810825023863564,
+      "accuracy": 0.9856150970268827,
+      "recall": 0.8337045285820341,
+      "precision": 0.7461794019933555,
+      "f1": 0.7875175315568023,
+      "brier": 0.011615512379399161,
+      "n_test": 84255,
+      "test_prevalence": 0.03197436353925583,
+      "trivial_accuracy": 0.9680256364607441
+    },
+    {
+      "condition": "D_persistence_unseen_municipalities",
+      "roc_auc": 0.9183979990074554,
+      "pr_auc": 0.7503680092726747,
+      "accuracy": 0.9567164179104478,
+      "recall": 0.8640973630831643,
+      "precision": 0.8452380952380952,
+      "f1": 0.8545636910732196,
+      "brier": 0.04328358208955224,
+      "n_test": 13400,
+      "test_prevalence": 0.1471641791044776,
+      "trivial_accuracy": 0.8528358208955225
+    }
+  ],
+  "state_folds": [
+    {
+      "condition": "state_fold_0",
+      "roc_auc": 0.9704171256960897,
+      "pr_auc": 0.6019143955098637,
+      "accuracy": 0.9755932203389831,
+      "recall": 0.6666666666666666,
+      "precision": 0.4842105263157895,
+      "f1": 0.5609756097560976,
+      "brier": 0.01949144154138761,
+      "n_test": 5900,
+      "test_prevalence": 0.023389830508474575,
+      "trivial_accuracy": 0.9766101694915255,
+      "held_states": [
+        "AM",
+        "AP",
+        "PE",
+        "RO",
+        "RR",
+        "TO"
+      ]
+    },
+    {
+      "condition": "state_fold_1",
+      "roc_auc": 0.9894395738896842,
+      "pr_auc": 0.8916115415784216,
+      "accuracy": 0.9755882352941176,
+      "recall": 0.7913188647746243,
+      "precision": 0.7926421404682275,
+      "f1": 0.7919799498746867,
+      "brier": 0.020355591494178923,
+      "n_test": 10200,
+      "test_prevalence": 0.05872549019607843,
+      "trivial_accuracy": 0.9412745098039216,
+      "held_states": [
+        "AL",
+        "BA",
+        "ES",
+        "MA",
+        "MS",
+        "RN"
+      ]
+    },
+    {
+      "condition": "state_fold_2",
+      "roc_auc": 0.9923858099665417,
+      "pr_auc": 0.923161204987526,
+      "accuracy": 0.9731428571428572,
+      "recall": 0.8950276243093923,
+      "precision": 0.7876823338735819,
+      "f1": 0.8379310344827586,
+      "brier": 0.01972719166809602,
+      "n_test": 14000,
+      "test_prevalence": 0.07757142857142857,
+      "trivial_accuracy": 0.9224285714285714,
+      "held_states": [
+        "DF",
+        "MT",
+        "PA",
+        "RJ",
+        "RS"
+      ]
+    },
+    {
+      "condition": "state_fold_3",
+      "roc_auc": 0.9917171387047321,
+      "pr_auc": 0.971456735612466,
+      "accuracy": 0.963112582781457,
+      "recall": 0.9117847411444142,
+      "precision": 0.8998319327731092,
+      "f1": 0.9057689054305532,
+      "brier": 0.029846964134988063,
+      "n_test": 15100,
+      "test_prevalence": 0.19443708609271523,
+      "trivial_accuracy": 0.8055629139072847,
+      "held_states": [
+        "AC",
+        "MG",
+        "PB",
+        "PR",
+        "SC"
+      ]
+    },
+    {
+      "condition": "state_fold_4",
+      "roc_auc": 0.9905653396999129,
+      "pr_auc": 0.9723699412860625,
+      "accuracy": 0.9567788461538461,
+      "recall": 0.9107032377809857,
+      "precision": 0.9045473166734944,
+      "f1": 0.9076148391737745,
+      "brier": 0.0326796564573028,
+      "n_test": 20800,
+      "test_prevalence": 0.233125,
+      "trivial_accuracy": 0.766875,
+      "held_states": [
+        "CE",
+        "GO",
+        "PI",
+        "SE",
+        "SP"
+      ]
+    }
+  ],
+  "information_ablation": [
+    {
+      "condition": "A_historical_only",
+      "roc_auc": 0.9906082274648412,
+      "pr_auc": 0.955877916337958,
+      "accuracy": 0.9658181818181818,
+      "recall": 0.8700041631973355,
+      "precision": 0.8924834507794149,
+      "f1": 0.8811004532518183,
+      "brier": 0.035399910995521006,
+      "n_test": 66000,
+      "test_prevalence": 0.14557575757575758,
+      "trivial_accuracy": 0.8544242424242424,
+      "n_features": 15
+    },
+    {
+      "condition": "B_environmental_only",
+      "roc_auc": 0.8849715190998564,
+      "pr_auc": 0.5965742933974396,
+      "accuracy": 0.8679393939393939,
+      "recall": 0.6067860116569526,
+      "precision": 0.5414190193164933,
+      "f1": 0.5722418531605811,
+      "brier": 0.09363228747155757,
+      "n_test": 66000,
+      "test_prevalence": 0.14557575757575758,
+      "trivial_accuracy": 0.8544242424242424,
+      "n_features": 43
+    },
+    {
+      "condition": "C_historical_plus_environment",
+      "roc_auc": 0.9917472449455456,
+      "pr_auc": 0.9614321671136674,
+      "accuracy": 0.9673333333333334,
+      "recall": 0.894150707743547,
+      "precision": 0.8829393627954779,
+      "f1": 0.888509670079636,
+      "brier": 0.02662244711023251,
+      "n_test": 66000,
+      "test_prevalence": 0.14557575757575758,
+      "trivial_accuracy": 0.8544242424242424,
+      "n_features": 58
+    },
+    {
+      "condition": "D_persistence_baseline",
+      "roc_auc": 0.9225916384759519,
+      "pr_auc": 0.759487071459848,
+      "accuracy": 0.9589090909090909,
+      "recall": 0.8713572023313905,
+      "precision": 0.8501218521527214,
+      "f1": 0.860608552631579,
+      "brier": 0.04109090909090909,
+      "n_test": 66000,
+      "test_prevalence": 0.14557575757575758,
+      "trivial_accuracy": 0.8544242424242424,
+      "n_features": 1
+    }
+  ],
+  "ablation_summary": {
+    "environment_gain_over_historical": 0.005554250775709368,
+    "historical_gain_over_persistence": 0.1963908448781101,
+    "environment_alone_vs_persistence": -0.16291277806240834
+  }
+}

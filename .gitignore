@@ -1,0 +1,10 @@
+# Raw datasets (1.2 GB) - downloaded by the pipeline, never needed by the app
+data/raw/
+*.pyc
+__pycache__/
+.venv/
+_fix_code.py
+
+# Training-only artifact the app does not load
+models/model2_lstm.pt
+models/model2_lstm_scalers.joblib
