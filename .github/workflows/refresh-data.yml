@@ -1,0 +1,87 @@
+name: Refresh dengue data
+
+# Keeps the deployed forecasts current without anyone remembering to do it.
+#
+# Sri Lanka's Epidemiology Unit publishes a new Weekly Epidemiological Report each
+# Monday, so this runs on Tuesdays. If nothing new has been published the job
+# detects that and exits without committing, so quiet weeks cost nothing.
+
+on:
+  schedule:
+    - cron: "0 6 * * 2"        # Tuesdays, 06:00 UTC (11:30 Sri Lanka time)
+  workflow_dispatch:            # and a manual "Run workflow" button
+    inputs:
+      force:
+        description: "Refresh even if no newer week is available"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: refresh-data
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements-refresh.txt
+
+      - name: Check for newer surveillance data
+        id: check
+        run: |
+          python refresh_data.py --check | tee check.log
+          if grep -q "Already current" check.log; then
+            echo "stale=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "stale=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Refresh data and regenerate forecasts
+        if: steps.check.outputs.stale == 'true' || inputs.force
+        run: python refresh_data.py
+
+      - name: Commit refreshed forecasts
+        if: steps.check.outputs.stale == 'true' || inputs.force
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A data/raw/srilanka_weekly_district.csv \
+                     data/raw/srilanka_weather_daily.parquet \
+                     reports/ models/srilanka_outbreak.joblib \
+                     models/srilanka_emergence.joblib \
+                     data/processed/srilanka_history.parquet
+          if git diff --cached --quiet; then
+            echo "Nothing changed after refresh."
+          else
+            WEEK=$(python -c "import json;print(json.load(open('reports/data_freshness.json'))['forecast_week'])")
+            git commit -m "Auto-refresh: surveillance data through ${WEEK}"
+            git push
+          fi
+
+      - name: Summary
+        if: always()
+        run: |
+          echo "### Dengue data refresh" >> "$GITHUB_STEP_SUMMARY"
+          if [ -f reports/data_freshness.json ]; then
+            python - <<'PY' >> "$GITHUB_STEP_SUMMARY"
+          import json
+          d = json.load(open("reports/data_freshness.json"))
+          for k in ("latest_week", "age_days", "forecast_week",
+                    "wer_validation", "wer_weeks_added"):
+              if k in d:
+                  print(f"- **{k.replace('_',' ')}**: {d[k]}")
+          PY
+          fi

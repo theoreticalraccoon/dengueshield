@@ -1,12 +1,12 @@
 {
-  "pr_auc": 0.3567867361103478,
-  "roc_auc": 0.8269583589089687,
-  "recall": 0.5206611570247934,
-  "precision": 0.32142857142857145,
-  "prevalence": 0.04730258014073495,
-  "n_positive": 121,
+  "pr_auc": 0.39961937719899143,
+  "roc_auc": 0.8322333200159807,
+  "recall": 0.48,
+  "precision": 0.38181818181818183,
+  "prevalence": 0.06534727408513816,
+  "n_positive": 175,
   "threshold": 0.7820986289180326,
   "horizon_weeks": 4,
   "outbreak_inc": 9.9,
-  "baseline_persistence_pr_auc": 0.20756879773003847
+  "baseline_persistence_pr_auc": 0.2500105281211048
 }

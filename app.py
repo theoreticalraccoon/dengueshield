@@ -76,6 +76,7 @@ def load_reports():
         "m2_head": _csv("model2_headtohead.csv"),
         "emergence": pd.read_csv(em) if em.exists() else None,
         "delay": _csv("reporting_delay_stress.csv"),
+        "freshness": _json("data_freshness.json"),
     }
 
 
@@ -308,9 +309,26 @@ elif screen == "Outbreak forecast":
                  "`experiments/emergence_v1/finalize_emergence_srilanka.py`.")
     else:
         wk = pd.to_datetime(dual.week_start).max().date()
-        st.caption(f"Generated automatically from surveillance week beginning **{wk}**. "
-                   f"Two models run per district: whether an existing outbreak will "
-                   f"**continue**, and whether a new one will **emerge**.")
+        st.caption("Two models run per district: whether an existing outbreak will "
+                   "**continue**, and whether a new one will **emerge**.")
+
+        # Surveillance is published with a lag, so say plainly how old this is.
+        fr = R["freshness"]
+        age = fr.get("age_days") if fr else None
+        if age is None:
+            age = (pd.Timestamp.utcnow().tz_localize(None).normalize()
+                   - pd.Timestamp(wk)).days
+        stamp = (f"**Surveillance week beginning {wk}** — {age} days old"
+                 + (f", refreshed {str(fr['refreshed_at'])[:10]}" if fr and fr.get("refreshed_at") else ""))
+        if age <= 21:
+            st.success(f"{stamp}. This is the most recent week Sri Lanka has published.")
+        elif age <= 70:
+            st.info(f"{stamp}. Sri Lanka's Epidemiology Unit publishes with a lag of "
+                    "roughly six to eight weeks, so this is at or near the newest "
+                    "data that exists.")
+        else:
+            st.warning(f"{stamp}. Older than the usual publication lag — run "
+                       "`python refresh_data.py` to pull anything newer.")
 
         d = dual.copy()
         d["status"] = np.where(d.currently_in_outbreak, "In outbreak", "Not in outbreak")

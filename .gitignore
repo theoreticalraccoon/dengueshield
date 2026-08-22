@@ -8,3 +8,10 @@ _fix_code.py
 # Training-only artifact the app does not load
 models/model2_lstm.pt
 models/model2_lstm_scalers.joblib
+
+# Sri Lanka inputs DO travel with the repo: they are small (3.5 MB) and the
+# automated weekly refresh needs them. The 1.2 GB Brazil parquet does not.
+!data/raw/srilanka_weekly_district.csv
+!data/raw/srilanka_weather_daily.parquet
+data/raw/wer/
+data/raw/sl_weather_parts/

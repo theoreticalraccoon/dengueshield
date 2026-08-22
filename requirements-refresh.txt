@@ -1,0 +1,4 @@
+# Extra dependencies for the automated data refresh (not needed to serve the app).
+-r requirements.txt
+requests>=2.31
+pdfplumber>=0.11
