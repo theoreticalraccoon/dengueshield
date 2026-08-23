@@ -9,7 +9,7 @@ import pandas as pd
 RAW = Path(__file__).resolve().parents[2] / "data" / "raw"
 
 
-def _clin_ratios(
+def clinical_ratios(
     X: pd.DataFrame,
     plt_c: str,
     wbc_c: str,
@@ -17,7 +17,12 @@ def _clin_ratios(
     lym: str | None = None,
     mpv: str | None = None,
 ) -> pd.DataFrame:
-    """Clinically motivated haematological ratios used in dengue literature."""
+    """Clinically motivated haematological ratios used in dengue literature.
+
+    Public because inference needs the identical transform: the screening form
+    fills unentered fields from cohort medians and must then rebuild these ratios
+    from whatever the clinician actually typed, exactly as training did.
+    """
     X = X.copy()
     X["PLT_WBC_ratio"] = X[plt_c] / X[wbc_c].clip(lower=1)
     if neu and lym:
@@ -34,7 +39,7 @@ def load_hematology_1523():
     y = (d["Result"].str.lower() == "positive").astype(int).values
     X = d.drop(columns=["Result"])
     X["Gender"] = (X["Gender"].str.lower() == "male").astype(int)
-    X = _clin_ratios(
+    X = clinical_ratios(
         X,
         "Total Platelet Count(/cumm)",
         "Total WBC count(/cumm)",

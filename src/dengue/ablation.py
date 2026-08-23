@@ -30,8 +30,10 @@ from sklearn.model_selection import RandomizedSearchCV, StratifiedKFold
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 
+from dengue.config import SEED as SEED  # re-exported: callers import it from here
+from dengue.metrics import threshold_for_sensitivity  # re-exported: callers import it from here
+
 RAW = Path(__file__).resolve().parents[2] / "data" / "raw"
-SEED = 42
 
 # ---------------------------------------------------------------- pediatric cohort
 PEDS_TARGET = "GROUPS: DENGUE FEVER OR COMPLICATED DENGUE"
@@ -169,16 +171,6 @@ def nested_oof(
     return P.mean(axis=1)
 
 
-def threshold_for_sensitivity(y, p, target=0.90) -> float:
-    """Highest threshold still achieving >= target sensitivity (screening operating point)."""
-    y, p = np.asarray(y), np.asarray(p)
-    best = 0.0
-    for t in np.unique(p):
-        if (p >= t)[y == 1].mean() >= target:
-            best = float(t)
-        else:
-            break
-    return best
 
 
 def full_metrics(y, p, thr) -> dict:

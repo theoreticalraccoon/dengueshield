@@ -17,6 +17,8 @@ import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader, TensorDataset
 
+from dengue.metrics import pos_weight
+
 SEQ_LEN = 12
 
 
@@ -82,7 +84,7 @@ def train_lstm(
     device = device or ("cuda" if torch.cuda.is_available() else "cpu")
     model = OutbreakLSTM(Xtr.shape[2], Str.shape[1]).to(device)
     pos_w = torch.tensor(
-        [(ytr == 0).sum() / max((ytr == 1).sum(), 1)], dtype=torch.float32, device=device
+        [pos_weight(ytr)], dtype=torch.float32, device=device
     )
     crit = nn.BCEWithLogitsLoss(pos_weight=pos_w)
     opt = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=1e-4)

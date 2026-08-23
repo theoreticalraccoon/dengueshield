@@ -8,20 +8,21 @@ sys.path.insert(0, "src")
 warnings.filterwarnings("ignore")
 
 import lightgbm as lgb
-import numpy as np
 from sklearn.metrics import (
     accuracy_score,
     average_precision_score,
     brier_score_loss,
-    f1_score,
     precision_score,
     recall_score,
     roc_auc_score,
 )
 
-from dengue.model2_outbreak import build_supervised, feature_columns, load_panel
+from dengue.config import BR_HORIZON, BR_INC, SEED
+from dengue.experiment import setup
+from dengue.metrics import threshold_for_f1
+from dengue.model2_outbreak import load_panel
 
-HORIZON, INC, SEED = 2, 100.0, 42
+HORIZON, INC = BR_HORIZON, BR_INC
 PARAMS = {
     "objective": "binary",
     "learning_rate": 0.03,
@@ -38,23 +39,20 @@ PARAMS = {
 
 def run(rebuild):
     p = load_panel(rebuild_lags=rebuild)
-    s = build_supervised(p, horizon=HORIZON, outbreak_inc=INC)
-    f = feature_columns(s)
-    tr = s[s.anio <= 2021]
-    va = s[(s.anio > 2021) & (s.anio <= 2023)]
-    te = s[s.anio > 2023]
-    spw = (tr.y.values == 0).sum() / max((tr.y.values == 1).sum(), 1)
+    r = setup(panel=p, horizon=HORIZON, outbreak_inc=INC)
+    f = r.feats
+    tr, va, te = r.tr, r.va, r.te
+    spw = r.spw
     m = lgb.train(
         {**PARAMS, "scale_pos_weight": spw},
         lgb.Dataset(tr[f], label=tr.y.values),
         num_boost_round=700,
     )
     pv, pt = m.predict(va[f]), m.predict(te[f])
-    qs = np.unique(np.quantile(pv, np.linspace(0.5, 0.999, 150)))
-    thr = max((f1_score(va.y.values, (pv >= t).astype(int), zero_division=0), t) for t in qs)[1]
+    thr = threshold_for_f1(va.y.values, pv, grid=150)
     yh = (pt >= thr).astype(int)
     return {
-        "rows": len(s),
+        "rows": len(r.sup),
         "n_test": len(te),
         "test_prevalence": float(te.y.mean()),
         "pr_auc": average_precision_score(te.y.values, pt),

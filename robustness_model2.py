@@ -25,6 +25,9 @@ from sklearn.metrics import (
     roc_auc_score,
 )
 
+from dengue.config import BR_HORIZON, BR_INC
+from dengue.experiment import pos_weight, split
+from dengue.metrics import threshold_for_f1
 from dengue.model2_outbreak import build_supervised, feature_columns, load_panel
 
 
@@ -46,12 +49,12 @@ def mk(spw):
 
 
 def tune_thr(y, p):
-    qs = np.unique(np.quantile(p, np.linspace(0.5, 0.999, 150)))
-    return max((f1_score(y, (p >= t).astype(int), zero_division=0), t) for t in qs)[1]
+    # grid=150 preserved: this script's published thresholds were tuned on it.
+    return threshold_for_f1(y, p, grid=150)
 
 
 def evaluate(ytr, Xtr, yva, Xva, yte, Xte):
-    m = mk((ytr == 0).sum() / max((ytr == 1).sum(), 1)).fit(Xtr, ytr)
+    m = mk(pos_weight(ytr)).fit(Xtr, ytr)
     pv, pt = m.predict_proba(Xva)[:, 1], m.predict_proba(Xte)[:, 1]
     thr = tune_thr(yva, pv)
     yh = (pt >= thr).astype(int)
@@ -73,8 +76,11 @@ panel = load_panel()
 results = {}
 
 # ---------- 1. rolling-origin backtest ----------
-print("\n=== 1. ROLLING-ORIGIN BACKTEST (horizon=4, outbreak>=100/100k) ===", flush=True)
-sup = build_supervised(panel, horizon=4, outbreak_inc=100.0)
+print(
+    f"\n=== 1. ROLLING-ORIGIN BACKTEST (horizon={BR_HORIZON}, outbreak>={BR_INC:.0f}/100k) ===",
+    flush=True,
+)
+sup = build_supervised(panel, horizon=BR_HORIZON, outbreak_inc=BR_INC)
 feats = feature_columns(sup)
 rows = []
 for test_year in range(2019, 2026):
@@ -101,11 +107,9 @@ print(
 print("\n=== 2. HORIZON SWEEP (test 2024-25) ===", flush=True)
 rows = []
 for h in [2, 4, 8]:
-    s = build_supervised(panel, horizon=h, outbreak_inc=100.0)
+    s = build_supervised(panel, horizon=h, outbreak_inc=BR_INC)
     f = feature_columns(s)
-    tr = s[s.anio <= 2021]
-    va = s[(s.anio > 2021) & (s.anio <= 2023)]
-    te = s[s.anio > 2023]
+    tr, va, te = split(s)
     r = evaluate(tr.y.values, tr[f], va.y.values, va[f], te.y.values, te[f])
     r["horizon"] = h
     rows.append(r)
@@ -117,14 +121,12 @@ for h in [2, 4, 8]:
 results["horizons"] = rows
 
 # ---------- 3. outbreak-threshold sweep ----------
-print("\n=== 3. OUTBREAK THRESHOLD SWEEP (horizon=4) ===", flush=True)
+print(f"\n=== 3. OUTBREAK THRESHOLD SWEEP (horizon={BR_HORIZON}) ===", flush=True)
 rows = []
 for inc in [50.0, 100.0, 300.0]:
-    s = build_supervised(panel, horizon=4, outbreak_inc=inc)
+    s = build_supervised(panel, horizon=BR_HORIZON, outbreak_inc=inc)
     f = feature_columns(s)
-    tr = s[s.anio <= 2021]
-    va = s[(s.anio > 2021) & (s.anio <= 2023)]
-    te = s[s.anio > 2023]
+    tr, va, te = split(s)
     r = evaluate(tr.y.values, tr[f], va.y.values, va[f], te.y.values, te[f])
     r["outbreak_inc"] = inc
     rows.append(r)
@@ -137,11 +139,9 @@ results["thresholds"] = rows
 
 # ---------- 4. shuffled-label control ----------
 print("\n=== 4. SHUFFLED-LABEL CONTROL (must collapse to chance) ===", flush=True)
-s = build_supervised(panel, horizon=4, outbreak_inc=100.0)
+s = build_supervised(panel, horizon=BR_HORIZON, outbreak_inc=BR_INC)
 f = feature_columns(s)
-tr = s[s.anio <= 2021].copy()
-va = s[(s.anio > 2021) & (s.anio <= 2023)].copy()
-te = s[s.anio > 2023].copy()
+tr, va, te = (d.copy() for d in split(s))
 rng = np.random.default_rng(0)
 r = evaluate(
     rng.permutation(tr.y.values), tr[f], rng.permutation(va.y.values), va[f], te.y.values, te[f]

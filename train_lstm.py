@@ -20,7 +20,9 @@ from sklearn.metrics import (
 )
 from sklearn.preprocessing import StandardScaler
 
+from dengue.config import TRAIN_END, VAL_END
 from dengue.lstm_outbreak import SEQ_LEN, make_sequences, predict, train_lstm
+from dengue.metrics import threshold_for_f1
 from dengue.model2_outbreak import (
     DYNAMIC,
     HORIZON,
@@ -64,7 +66,11 @@ print(
 # identical in coverage to the gradient-boosting comparison.
 X_all, S_all, y_all, idx_all = make_sequences(prep(sup), dyn, stat, SEQ_LEN)
 anio = sup.loc[idx_all, "anio"].to_numpy()
-masks = {"train": anio <= 2021, "val": (anio > 2021) & (anio <= 2023), "test": anio > 2023}
+masks = {
+    "train": anio <= TRAIN_END,
+    "val": (anio > TRAIN_END) & (anio <= VAL_END),
+    "test": anio > VAL_END,
+}
 out = {}
 for name, mk in masks.items():
     out[name] = (X_all[mk], S_all[mk], y_all[mk], idx_all[mk])
@@ -78,8 +84,7 @@ model, best_ap = train_lstm(Xtr, Str, ytr, Xva, Sva, yva, epochs=40, bs=512, pat
 
 pv = predict(model, Xva, Sva)
 pt = predict(model, Xte, Ste)
-qs = np.unique(np.quantile(pv, np.linspace(0.5, 0.999, 200)))
-thr = max((f1_score(yva, (pv >= t).astype(int), zero_division=0), t) for t in qs)[1]
+thr = threshold_for_f1(yva, pv)
 yh = (pt >= thr).astype(int)
 tn, fp, fn, tp = confusion_matrix(yte, yh, labels=[0, 1]).ravel()
 res = {

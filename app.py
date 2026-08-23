@@ -12,14 +12,14 @@ from pathlib import Path
 
 sys.path.insert(0, "src")
 
-import json
 
-import joblib
 import numpy as np
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 import streamlit as st
+
+from dengue import evidence, predictor, risk
 
 ROOT = Path(__file__).parent
 MODELS, REPORTS, PROC = ROOT / "models", ROOT / "reports", ROOT / "data" / "processed"
@@ -35,6 +35,10 @@ ACCENT = "#0F5F63"
 # still clears WCAG AA against either white or ink, so text printed on a band is
 # always readable. `readable_on` picks which.
 BAND_COLOR = {"Low": "#1A8754", "Moderate": "#C68A0E", "High": "#D2691E", "Very High": "#C42A1C"}
+# A district neither model speaks for gets no risk hue at all. Grey is the point:
+# it reads as absence, not as a low reading.
+NO_BAND = "Not assessable"
+BAND_COLOR_MAP = {**BAND_COLOR, NO_BAND: FAINT}
 
 
 def _luminance(hex_colour: str) -> float:
@@ -171,55 +175,34 @@ PLOT_LAYOUT = {
 
 @st.cache_resource
 def load_models():
-    out = {}
-    for key, fn in [
-        ("screening", "model1_screening.joblib"),
-        ("peds", "peds_complications.joblib"),
-        ("sl_continuation", "srilanka_outbreak.joblib"),
-        ("sl_emergence", "srilanka_emergence.joblib"),
-    ]:
-        p = MODELS / fn
-        out[key] = joblib.load(p) if p.exists() else None
-    return out
+    """Every saved model behind one interface. Absent artifacts load as None."""
+    return predictor.load_all()
 
 
 @st.cache_data
-def load_reports():
-    def _csv(n):
-        p = REPORTS / n
-        return pd.read_csv(p) if p.exists() else None
-
-    def _json(n):
-        p = REPORTS / n
-        return json.loads(p.read_text()) if p.exists() else None
-
-    hist = PROC / "srilanka_history.parquet"
-    em = ROOT / "experiments" / "emergence_v1" / "emergence_results.csv"
-    return {
-        "dual": _csv("srilanka_dual_risk.csv"),
-        "history": pd.read_parquet(hist) if hist.exists() else None,
-        "medians": _json("cbc_population_medians.json") or {},
-        "audit": _csv("dataset_audit.csv"),
-        "m1_ops": _json("model1_operating_points.json"),
-        "robust": _json("model2_robustness.json"),
-        "info_abl": _csv("model2_information_ablation.csv"),
-        "spatial": _csv("model2_spatial_holdout.csv"),
-        "calib": _json("model2_calibration_errors.json"),
-        "rel_raw": _csv("model2_reliability_raw.csv"),
-        "rel_cal": _csv("model2_reliability_calibrated.csv"),
-        "sl_calib": _json("srilanka_calibration.json"),
-        "transfer": _csv("srilanka_transfer.csv"),
-        "ablation_peds": _csv("ablation_peds.csv"),
-        "m2_head": _csv("model2_headtohead.csv"),
-        "emergence": pd.read_csv(em) if em.exists() else None,
-        "delay": _csv("reporting_delay_stress.csv"),
-        "freshness": _json("data_freshness.json"),
-        "situation": _csv("srilanka_latest_situation.csv"),
-        "sit_meta": _json("situation_freshness.json"),
-    }
+def forecasts():
+    """The district dual-risk table. None when no forecast has been produced."""
+    return evidence.forecasts()
 
 
-M, R = load_models(), load_reports()
+@st.cache_data
+def history():
+    """District case + rainfall series - the only artifact big enough to cache."""
+    return evidence.history()
+
+
+@st.cache_data
+def headline():
+    """The four task scores, read from reports/ rather than restated here."""
+    return evidence.headline_metrics()
+
+
+M = load_models()
+
+# The emergence model's own operating point, not a display constant: it decides
+# which quiet districts are flagged. Both screens read the same number.
+_emergence = M[predictor.SL_EMERGENCE]
+EMERGENCE_THRESHOLD = _emergence.threshold if _emergence else 0.5
 
 
 def header(title: str, eyebrow: str = "", lede: str = "") -> None:
@@ -234,23 +217,6 @@ def finding(title: str, body: str) -> None:
     st.markdown(f'<div class="finding"><b>{title}</b><p>{body}</p></div>', unsafe_allow_html=True)
 
 
-def build_cbc_row(vals: dict) -> dict:
-    """Fill any unsupplied CBC field from the cohort median, then derive ratios."""
-    row = dict(R["medians"])
-    row.update(vals)
-    neu, lym = row["Neutrophils(%)"], row["Lymphocytes(%)"]
-    plt_c, wbc = row["Total Platelet Count(/cumm)"], row["Total WBC count(/cumm)"]
-    row["NLR"] = neu / max(lym, 1)
-    row["PLR"] = plt_c / max(lym, 1)
-    row["PLT_WBC_ratio"] = plt_c / max(wbc, 1)
-    row["MPV_PLT_ratio"] = row["MPV(fl)"] / max(plt_c / 1000, 1e-6)
-    return row
-
-
-def screen_patient(vals: dict):
-    b = M["screening"]
-    p = float(b["model"].predict_proba(pd.DataFrame([build_cbc_row(vals)])[b["features"]])[0, 1])
-    return p, b.get("threshold_sens90", 0.5)
 
 
 def probability_bar(p: float, thr: float, label: str):
@@ -377,7 +343,7 @@ if screen == "Patient assessment":
                 vals["PDW(%)"] = c4.number_input("PDW (%)", 5.0, 25.0, 15.0, 0.1)
                 vals["PCT(%)"] = c4.number_input("PCT (%)", 0.0, 1.0, 0.15, 0.01)
 
-            dual = R["dual"]
+            dual = forecasts()
             district = None
             if dual is not None:
                 district = st.selectbox(
@@ -386,8 +352,8 @@ if screen == "Patient assessment":
                 )
 
             if st.button("Assess", type="primary", key="screen_btn"):
-                p, thr = screen_patient(vals)
-                flag = p >= thr
+                got = b.predict_one(vals)
+                p, thr, flag = got.probability, got.threshold, got.flag
                 st.markdown("---")
                 a, bcol = st.columns([1, 2])
                 with a:
@@ -399,34 +365,41 @@ if screen == "Patient assessment":
 
                 if dual is not None and district and district != "Not specified":
                     row = dual[dual.district == district].iloc[0]
-                    geo = (
-                        row.continuation_risk
-                        if row.currently_in_outbreak
-                        else (
-                            row.emergence_risk
-                            if pd.notna(row.emergence_risk)
-                            else row.continuation_risk
-                        )
-                    )
+                    geo = risk.assess(row, EMERGENCE_THRESHOLD)
                     k = st.columns(4)
                     k[0].metric("District", district)
                     k[1].metric("Cases this week", f"{int(row.casos):,}")
-                    k[2].metric("In outbreak", "Yes" if row.currently_in_outbreak else "No")
-                    k[3].metric("14-day outbreak risk", f"{geo:.0%}")
-                    msg = {
-                        (True, True): f"Elevated patient probability in a high-risk "
-                        f"district. Confirmatory testing; vector-control "
-                        f"inspection and community advisory for {district}.",
-                        (True, False): "Elevated patient probability, lower geographic "
-                        "risk. Confirmatory testing for this patient.",
-                        (False, True): f"Lower patient probability, but {district} is at "
-                        f"elevated risk. Maintain district surveillance.",
-                        (False, False): "Neither signal elevated. Routine care and "
-                        "routine surveillance.",
-                    }[(flag, geo >= 0.5)]
+                    k[2].metric("In outbreak", "Yes" if geo.in_outbreak else "No")
+                    k[3].metric(
+                        "14-day outbreak risk",
+                        "n/a" if geo.headline_risk is None else f"{geo.headline_risk:.0%}",
+                    )
+                    if geo.headline_risk is None:
+                        # Neither model is asked about this district. Saying so beats
+                        # quoting the continuation model at a population it excludes.
+                        msg = (
+                            f"{district} has no outbreak forecast this week - it is "
+                            f"{geo.reason(EMERGENCE_THRESHOLD)}. "
+                        ) + (
+                            "Confirmatory testing for this patient."
+                            if flag
+                            else "Routine care."
+                        )
+                    else:
+                        msg = {
+                            (True, True): f"Elevated patient probability in a high-risk "
+                            f"district. Confirmatory testing; vector-control "
+                            f"inspection and community advisory for {district}.",
+                            (True, False): "Elevated patient probability, lower geographic "
+                            "risk. Confirmatory testing for this patient.",
+                            (False, True): f"Lower patient probability, but {district} is at "
+                            f"elevated risk. Maintain district surveillance.",
+                            (False, False): "Neither signal elevated. Routine care and "
+                            "routine surveillance.",
+                        }[(flag, geo.headline_risk >= 0.5)]
                     st.markdown(f'<p class="note">{msg}</p>', unsafe_allow_html=True)
 
-                ops = R["m1_ops"]
+                ops = evidence.screening_operating_points()
                 tail = (
                     f" ROC-AUC {ops['at_0.5']['roc_auc']:.3f}, accuracy "
                     f"{ops['at_0.5']['accuracy']:.3f} against a 0.685 majority-class "
@@ -508,9 +481,9 @@ if screen == "Patient assessment":
                     "CREATININE": creat,
                     "FERRITIN": ferr,
                 }
-                p = float(b["model"].predict_proba(pd.DataFrame([row])[b["features"]])[0, 1])
-                thr = b["threshold_sens90"]
-                mm = b["metrics"]
+                got = b.predict_one(row)
+                p, thr = got.probability, got.threshold
+                mm = b.metrics
                 st.markdown("---")
                 a, bcol = st.columns([1, 2])
                 with a:
@@ -528,9 +501,9 @@ if screen == "Patient assessment":
 
 # ========================================================== 2. OUTBREAK FORECAST
 elif screen == "Outbreak forecast":
-    dual = R["dual"]
+    dual = forecasts()
     if dual is None:
-        st.error("No forecasts. Run experiments/emergence_v1/finalize_emergence_srilanka.py.")
+        st.error("No forecasts. Run finalize_srilanka.py then finalize_emergence.py.")
     else:
         header(
             "Sri Lanka outbreak forecast",
@@ -539,7 +512,7 @@ elif screen == "Outbreak forecast":
             "and whether a new one begins.",
         )
 
-        fr = R["freshness"] or {}
+        fr = evidence.freshness()
         wk = pd.to_datetime(dual.week_start).max()
         updated = str(fr.get("refreshed_at", ""))[:10]
         st.markdown(
@@ -551,55 +524,33 @@ elif screen == "Outbreak forecast":
             + (
                 f'<div><span class="k">Latest reported week</span>'
                 f'<span class="v">{pd.Timestamp(sm["latest_week_start"]).strftime("%d %b %Y")}</span></div>'
-                if (sm := R["sit_meta"])
+                if (sm := evidence.situation_freshness())
                 else ""
             )
             + "</div>",
             unsafe_allow_html=True,
         )
 
-        d = dual.copy()
-        d["status"] = np.where(d.currently_in_outbreak, "In outbreak", "Not in outbreak")
-        d["headline_risk"] = np.where(
-            d.currently_in_outbreak,
-            d.continuation_risk,
-            d.emergence_risk.fillna(d.continuation_risk),
-        )
-        d["band"] = pd.cut(
-            d.headline_risk,
-            [-0.01, 0.25, 0.5, 0.75, 1.01],
-            labels=["Low", "Moderate", "High", "Very High"],
-        )
-
         # ---- triage: the answer the page exists to give ----
-        emg_thr = (M["sl_emergence"] or {}).get("threshold", 0.5)
-        d["triage"] = np.select(
-            [
-                d.currently_in_outbreak,
-                d.emergence_risk.notna() & (d.emergence_risk >= emg_thr),
-                d.emergence_risk.notna(),
-            ],
-            ["Outbreak now", "Outbreak likely", "Clear"],
-            default="Not assessable",
-        )
-        TRIAGE = {
-            "Outbreak now": (
-                BAND_COLOR["Very High"],
-                "incidence is at or above the epidemic threshold",
-            ),
-            "Outbreak likely": (
-                BAND_COLOR["High"],
-                f"quiet now, but emergence risk is at or above {emg_thr:.0%}",
-            ),
-            "Clear": (BAND_COLOR["Low"], "quiet, and no emergence signal"),
-            "Not assessable": (
-                FAINT,
-                "out of outbreak too recently for the emergence model, "
-                "which needs two consecutive quiet weeks",
-            ),
+        # The rule itself lives in dengue.risk so the map, the table and the
+        # district read-out below cannot disagree about what a blank emergence
+        # risk means.
+        emg_thr = EMERGENCE_THRESHOLD
+        d = risk.assess_frame(dual, emg_thr)
+        d["band_label"] = d.band.fillna(NO_BAND)
+
+        TRIAGE_COLOR = {
+            risk.OUTBREAK_NOW: BAND_COLOR["Very High"],
+            risk.OUTBREAK_LIKELY: BAND_COLOR["High"],
+            risk.CLEAR: BAND_COLOR["Low"],
+            risk.NOT_ASSESSABLE: FAINT,
         }
-        order = ["Outbreak now", "Outbreak likely", "Clear", "Not assessable"]
-        counts = {g: int((d.triage == g).sum()) for g in order}
+        TRIAGE = {
+            g: (TRIAGE_COLOR[g], risk.TRIAGE_REASON[g].format(threshold=emg_thr))
+            for g in risk.TRIAGE_ORDER
+        }
+        order = list(risk.TRIAGE_ORDER)
+        counts = risk.triage_counts(d)
 
         # proportional bar - the whole country in one line
         bar = go.Figure()
@@ -673,7 +624,7 @@ elif screen == "Outbreak forecast":
                         unsafe_allow_html=True,
                     )
 
-        if counts["Outbreak likely"] == 0:
+        if counts[risk.OUTBREAK_LIKELY] == 0:
             st.markdown(
                 '<p class="note" style="margin-top:.8rem">No district is currently '
                 "flagged for a <em>new</em> outbreak. With most of the country already "
@@ -692,8 +643,8 @@ elif screen == "Outbreak forecast":
                 lat="lat",
                 lon="lon",
                 size="casos",
-                color="band",
-                color_discrete_map=BAND_COLOR,
+                color="band_label",
+                color_discrete_map=BAND_COLOR_MAP,
                 hover_name="district",
                 hover_data={
                     "casos": True,
@@ -703,12 +654,14 @@ elif screen == "Outbreak forecast":
                     "emergence_risk": ":.2f",
                     "lat": False,
                     "lon": False,
-                    "band": False,
+                    "band_label": False,
                 },
                 size_max=42,
                 zoom=6.2,
                 height=540,
-                category_orders={"band": ["Very High", "High", "Moderate", "Low"]},
+                category_orders={
+                    "band_label": ["Very High", "High", "Moderate", "Low", NO_BAND]
+                },
             )
             fig.update_layout(
                 map_style="carto-positron",
@@ -744,24 +697,32 @@ elif screen == "Outbreak forecast":
                 },
             )
             st.markdown(
-                '<p class="note">Emergence is blank where a district is already '
-                "in outbreak. Status is in the panel above.</p>",
+                '<p class="note">Emergence is blank where the question is not asked - '
+                "either the district is already in outbreak, or it left one too recently "
+                "to be eligible. Status is in the panel above.</p>",
                 unsafe_allow_html=True,
             )
 
         st.markdown("---")
         sel = st.selectbox("District detail", d.district.tolist())
         row = d[d.district == sel].iloc[0]
+        detail = risk.assess(row, emg_thr)
         c = st.columns(5)
         c[0].metric("Cases", f"{int(row.casos):,}")
         c[1].metric("Per 100k", f"{row.p_inc100k:.1f}")
-        c[2].metric("Status", row.status)
+        c[2].metric("Status", detail.status)
         c[3].metric("Continuation", f"{row.continuation_risk:.0%}")
         c[4].metric(
             "Emergence", "n/a" if pd.isna(row.emergence_risk) else f"{row.emergence_risk:.0%}"
         )
+        st.markdown(
+            f'<p class="note"><span class="dot" style="background:'
+            f'{TRIAGE_COLOR[detail.triage]}"></span><b>{detail.triage}</b> - '
+            f"{detail.reason(emg_thr)}.</p>",
+            unsafe_allow_html=True,
+        )
 
-        hist = R["history"]
+        hist = history()
         if hist is not None:
             h = hist[hist.district == sel].sort_values("week_start").tail(160)
             f = go.Figure()
@@ -823,29 +784,12 @@ else:
             pd.DataFrame(
                 [
                     {
-                        "Question": "Does this patient appear to have dengue?",
-                        "Asked of": "one febrile patient",
-                        "Score": "ROC-AUC 0.681",
-                        "Verdict": "Modest",
-                    },
-                    {
-                        "Question": "Does this dengue patient need closer monitoring?",
-                        "Asked of": "one dengue admission",
-                        "Score": "ROC-AUC 0.874",
-                        "Verdict": "Strong",
-                    },
-                    {
-                        "Question": "Will this district's outbreak continue 14 days?",
-                        "Asked of": "any district",
-                        "Score": "PR-AUC 0.961",
-                        "Verdict": "Strong",
-                    },
-                    {
-                        "Question": "Will a new outbreak begin here?",
-                        "Asked of": "quiet districts only",
-                        "Score": "PR-AUC 0.583",
-                        "Verdict": "Harder",
-                    },
+                        "Question": t.question,
+                        "Asked of": t.asked_of,
+                        "Score": t.format(),
+                        "Verdict": t.verdict,
+                    }
+                    for t in headline().values()
                 ]
             ),
             hide_index=True,
@@ -878,13 +822,23 @@ hospital preparedness raised""",
             "development and never tuned against.</p>",
             unsafe_allow_html=True,
         )
+        cont = headline()["continuation"]
         c = st.columns(4)
-        c[0].metric("14-day forecast", "0.961", "PR-AUC")
-        c[1].metric("vs persistence", "0.615", "+0.35")
+        c[0].metric(
+            "14-day forecast", "n/a" if not cont.known else f"{cont.score:.3f}", "PR-AUC"
+        )
+        # The baseline comes from the same artifact as the score above it, so the
+        # two are always the same experiment. They used to be quoted from runs at
+        # different horizons.
+        c[1].metric(
+            "vs persistence",
+            "n/a" if cont.baseline is None else f"{cont.baseline:.3f}",
+            None if not (cont.known and cont.baseline) else f"+{cont.score - cont.baseline:.2f}",
+        )
         c[2].metric("Unseen districts", "0.955", "−0.007")
         c[3].metric("Calibration (ECE)", "0.0052", "−0.014", delta_color="inverse")
 
-        rb = R["robust"]
+        rb = evidence.robustness()
         if rb and "rolling_origin" in rb:
             ro = pd.DataFrame(rb["rolling_origin"])
             f = go.Figure()
@@ -927,7 +881,7 @@ hospital preparedness raised""",
             "momentum. Ask the same features about outbreak <i>emergence</i> and they "
             "add +0.089 — a 15× difference.",
         )
-        ia = R["info_abl"]
+        ia = evidence.information_ablation()
         if ia is not None:
             f = px.bar(
                 ia.sort_values("pr_auc"),
@@ -964,9 +918,9 @@ hospital preparedness raised""",
                 hide_index=True,
                 width="stretch",
             )
-            if R["m2_head"] is not None:
+            if (m2h := evidence.head_to_head()) is not None:
                 st.dataframe(
-                    R["m2_head"][
+                    m2h[
                         ["model", "pr_auc", "accuracy", "recall", "precision", "brier"]
                     ].round(4),
                     hide_index=True,
@@ -1004,7 +958,7 @@ hospital preparedness raised""",
         )
 
         with st.expander("Error breakdown and transfer experiment"):
-            cal = R["calib"]
+            cal = evidence.calibration_errors()
             if cal and "strata" in cal and "baseline_inc_q" in cal["strata"]:
                 st.markdown("Recall by starting incidence")
                 st.dataframe(
@@ -1012,7 +966,7 @@ hospital preparedness raised""",
                     hide_index=True,
                     width="stretch",
                 )
-            tf = R["transfer"]
+            tf = evidence.transfer()
             if tf is not None:
                 t = tf[tf.threshold_name == "srilanka_calibrated"] if "threshold_name" in tf else tf
 
@@ -1071,7 +1025,7 @@ hospital preparedness raised""",
             "circular.</p>",
             unsafe_allow_html=True,
         )
-        au = R["audit"]
+        au = evidence.dataset_audit()
         if au is not None:
             cols = [
                 c

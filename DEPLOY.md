@@ -122,7 +122,7 @@ data:
 
 ```bash
 .venv/Scripts/python.exe finalize_srilanka.py                                  # continuation
-.venv/Scripts/python.exe experiments/emergence_v1/finalize_emergence_srilanka.py  # emergence
+.venv/Scripts/python.exe finalize_emergence.py                                    # emergence
 ```
 
 Both rewrite `reports/srilanka_dual_risk.csv`, which the app picks up on next load.

@@ -27,7 +27,10 @@ from sklearn.model_selection import StratifiedKFold
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 
-SEED = 42
+# Re-exported: this was defined here and byte-identically in ablation.py.
+from dengue.config import SEED as SEED  # re-exported: callers import it from here
+from dengue.metrics import pos_weight
+from dengue.metrics import threshold_for_sensitivity as threshold_for_sensitivity
 
 
 # --------------------------------------------------------------------------- MLP
@@ -75,7 +78,7 @@ class TorchMLP(BaseEstimator, ClassifierMixin):
         Xt, yt = torch.tensor(X[tr]), torch.tensor(y[tr])
         Xv, yv = torch.tensor(X[va]), torch.tensor(y[va])
         self.model_ = _MLP(X.shape[1], self.hidden, self.p_drop)
-        pos_w = torch.tensor([(y[tr] == 0).sum() / max((y[tr] == 1).sum(), 1)], dtype=torch.float32)
+        pos_w = torch.tensor([pos_weight(y[tr])], dtype=torch.float32)
         crit = nn.BCEWithLogitsLoss(pos_weight=pos_w)
         opt = torch.optim.AdamW(
             self.model_.parameters(), lr=self.lr, weight_decay=self.weight_decay
@@ -193,22 +196,3 @@ def metrics_at(y, p, thr) -> dict:
         "pr_auc": average_precision_score(y, p),
         "brier": brier_score_loss(y, p),
     }
-
-
-def threshold_for_sensitivity(y, p, target=0.90) -> float:
-    """Highest threshold that still achieves >= target sensitivity.
-
-    Sensitivity is monotonically non-increasing in the threshold, so we walk
-    thresholds upward and keep the last one that still meets the target. This
-    maximises specificity subject to the sensitivity constraint - the correct
-    operating point for a screening tool, where missed cases are the costly error.
-    """
-    y = np.asarray(y)
-    p = np.asarray(p)
-    best = 0.0
-    for t in np.unique(p):
-        if (p >= t)[y == 1].mean() >= target:
-            best = float(t)
-        else:
-            break
-    return best

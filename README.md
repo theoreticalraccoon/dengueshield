@@ -120,7 +120,7 @@ Three screens, the two tools first:
 .venv/Scripts/python.exe leakage_audit.py         # timestamp chain + reporting delay
 .venv/Scripts/python.exe freeze_v2.py             # immutable hashed release
 .venv/Scripts/python.exe experiments/emergence_v1/run_emergence.py
-.venv/Scripts/python.exe experiments/emergence_v1/finalize_emergence_srilanka.py
+.venv/Scripts/python.exe finalize_emergence.py
 ```
 
 ## Data sources

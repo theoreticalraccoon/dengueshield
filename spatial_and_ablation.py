@@ -34,11 +34,12 @@ from sklearn.metrics import (
     roc_auc_score,
 )
 
+from dengue.config import BR_HORIZON, BR_INC, SEED
+from dengue.experiment import pos_weight, split
 from dengue.model2_outbreak import build_supervised, feature_columns, load_panel
 
-HORIZON = 2
-OUTBREAK_INC = 100.0
-SEED = 42
+HORIZON = BR_HORIZON
+OUTBREAK_INC = BR_INC
 
 PARAMS = {
     "objective": "binary",
@@ -74,7 +75,7 @@ HISTORICAL = [
 
 
 def fit_predict(tr, va, te, feats):
-    spw = (tr.y.values == 0).sum() / max((tr.y.values == 1).sum(), 1)
+    spw = pos_weight(tr.y.values)
     m = lgb.train(
         {**PARAMS, "scale_pos_weight": spw},
         lgb.Dataset(tr[feats], label=tr.y.values),
@@ -134,9 +135,7 @@ print(f"  seen municipalities={len(munis) - n_hold}  held-out={n_hold}")
 rows = []
 
 # (a) reference: temporal holdout, all municipalities seen
-tr = seen[seen.anio <= 2021]
-va = seen[(seen.anio > 2021) & (seen.anio <= 2023)]
-te_seen = seen[seen.anio > 2023]
+tr, va, te_seen = split(seen)
 _, pv, pt = fit_predict(tr, va, te_seen, FEATS)
 thr = tune_thr(va.y.values, pv)
 rows.append(score(te_seen.y.values, pt, thr, "A_temporal_seen_municipalities"))
@@ -216,9 +215,7 @@ print(
     f"\n{'=' * 78}\n2. INFORMATION ABLATION - where does the skill come from?\n{'=' * 78}",
     flush=True,
 )
-tr = sup[sup.anio <= 2021]
-va = sup[(sup.anio > 2021) & (sup.anio <= 2023)]
-te = sup[sup.anio > 2023]
+tr, va, te = split(sup)
 abl = []
 for name, cols in [
     ("A_historical_only", HIST),

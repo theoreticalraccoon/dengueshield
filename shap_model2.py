@@ -20,17 +20,19 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from lightgbm import LGBMClassifier
 
-from dengue.model2_outbreak import build_supervised, feature_columns, load_panel, temporal_split
+from dengue.config import BR_HORIZON
+from dengue.experiment import setup
+from dengue.model2_outbreak import load_panel
 
-HORIZON = 2  # the 14-day early-warning model - the flagship result
+HORIZON = BR_HORIZON  # the 14-day early-warning model - the flagship result
 print(f"SHAP for horizon={HORIZON} weeks", flush=True)
 panel = load_panel()
-sup = build_supervised(panel, horizon=HORIZON, outbreak_inc=100.0)
-feats = feature_columns(sup)
-tr, va, te = temporal_split(sup)
+run = setup(panel=panel, horizon=HORIZON)
+sup, feats = run.sup, run.feats
+tr, va, te = run.tr, run.va, run.te
 print(f"train={len(tr)} val={len(va)} (test held out, not used here)", flush=True)
 
-spw = (tr.y.values == 0).sum() / max((tr.y.values == 1).sum(), 1)
+spw = run.spw
 m = LGBMClassifier(
     n_estimators=800,
     learning_rate=0.03,

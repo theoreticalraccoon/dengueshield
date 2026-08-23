@@ -48,6 +48,10 @@ FRESHNESS = REPORTS / "data_freshness.json"
 MIN_AGREEMENT = 0.95  # WER is rejected below this match rate against the hub
 MAX_NEW_REPORTS = 20  # cap PDFs fetched per run
 
+# --check answers with an exit status so CI can branch on it.
+EXIT_CURRENT = 0  # local data is up to date
+EXIT_STALE = 10   # newer surveillance data is available
+
 
 def log(msg: str) -> None:
     print(msg, flush=True)
@@ -173,21 +177,53 @@ def extend_weather(until: pd.Timestamp) -> pd.Timestamp:
 
 
 def rebuild_forecasts() -> dict:
-    """Regenerate continuation + emergence forecasts from the refreshed panel."""
-    import runpy
+    """Regenerate continuation + emergence forecasts from the refreshed panel.
 
-    log("\n[4/4] regenerating forecasts")
-    for script in [
-        "finalize_srilanka.py",
-        "experiments/emergence_v1/finalize_emergence_srilanka.py",
-    ]:
-        log(f"  running {script}")
-        runpy.run_path(str(ROOT / script), run_name="__main__")
+    Both scripts expose main(panel), so they are imported and called rather than
+    executed with runpy - which was only ever needed because they did all their
+    work at module import. The panel is built ONCE here and handed to both; it
+    used to be rebuilt per script, in one process, against a documented memory
+    ceiling.
+    """
+    import finalize_emergence
+    import finalize_srilanka
+    from dengue.srilanka import build_panel
+
+    log("\n[5/5] regenerating forecasts")
+    panel = build_panel()
+    log(f"  panel built once: {len(panel):,} district-weeks")
+
+    log("  continuation -> models/srilanka_outbreak.joblib")
+    finalize_srilanka.main(panel)
+    log("  emergence    -> models/srilanka_emergence.joblib")
+    finalize_emergence.main(panel)
+
     dual = pd.read_csv(REPORTS / "srilanka_dual_risk.csv")
     return {
         "forecast_week": str(pd.to_datetime(dual.week_start).max().date()),
         "districts": len(dual),
     }
+
+
+def refresh_situation() -> None:
+    """Refresh the NDCU situation tables.
+
+    Wired in because the app renders the NDCU freshness stamp: leaving this script
+    to be run by hand meant that stamp went stale while the freshness file beside
+    it kept advancing. It is supplementary to the forecast, so a failure here is
+    logged and the refresh continues - the WER/denguedatahub path is the one the
+    forecasts actually depend on.
+    """
+    log("\n[4/5] NDCU situation update")
+    try:
+        import refresh_situation as situation
+
+        if situation.main() == 0:
+            log("  situation tables updated")
+        else:
+            log("  NDCU parse produced nothing usable - existing tables left alone")
+    except Exception as e:
+        log(f"  NDCU refresh failed ({type(e).__name__}: {str(e)[:80]}) - continuing")
 
 
 def write_freshness(**kw) -> None:
@@ -199,7 +235,7 @@ def main(check_only: bool) -> int:
     now = datetime.now(UTC)
     log(f"DengueShield data refresh - {now:%Y-%m-%d %H:%M} UTC\n")
 
-    log("[1/4] denguedatahub")
+    log("[1/5] denguedatahub")
     hub = fetch_hub()
     hub_last = hub.week_start.max()
     log(f"  {len(hub):,} rows, latest week {hub_last.date()}")
@@ -211,7 +247,7 @@ def main(check_only: bool) -> int:
         local_last = cur["_ws"].max()
         log(f"  local file latest week {local_last.date()}")
 
-    log("\n[2/4] Epidemiology Unit weekly reports")
+    log("\n[2/5] Epidemiology Unit weekly reports")
     new, check = harvest_wer(hub_last, hub)
 
     latest = max([hub_last] + ([new.week_start.max()] if len(new) else []))
@@ -219,25 +255,22 @@ def main(check_only: bool) -> int:
     log(f"\n  latest available surveillance week: {latest.date()} ({age_days} days old)")
 
     if check_only:
-        write_freshness(
-            checked_at=now,
-            latest_week=latest,
-            age_days=age_days,
-            hub_latest=hub_last,
-            wer_validation=check.get("verdict"),
-            local_latest=local_last,
-            action="check-only",
-        )
-        if local_last is not None and latest <= local_last:
+        # A check reports; it does not write. The freshness file is a record of a
+        # refresh, and rewriting it here made --check a side-effecting operation.
+        current = local_last is not None and latest <= local_last
+        if current:
             log("\nAlready current - nothing to do.")
         else:
             log(
-                f"\nNewer data available (local {local_last.date() if local_last is not None else '-'}"
+                f"\nNewer data available (local "
+                f"{local_last.date() if local_last is not None else '-'}"
                 f" -> {latest.date()}). Run without --check to apply."
             )
-        return 0
+        # Exit status, not log prose: CI used to grep stdout for a sentence, so
+        # rewording a log line silently inverted the branch.
+        return EXIT_CURRENT if current else EXIT_STALE
 
-    log("\n[3/4] merging and topping up weather")
+    log("\n[3/5] merging and topping up weather")
     merged = merge(hub, new)
     SURVEILLANCE.parent.mkdir(parents=True, exist_ok=True)
     merged.to_csv(SURVEILLANCE, index=False)
@@ -245,6 +278,7 @@ def main(check_only: bool) -> int:
     weather_to = extend_weather(latest)
     log(f"  weather covers through {pd.Timestamp(weather_to).date()}")
 
+    refresh_situation()
     info = rebuild_forecasts()
     write_freshness(
         refreshed_at=now,

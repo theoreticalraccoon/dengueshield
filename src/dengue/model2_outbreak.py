@@ -22,13 +22,19 @@ import duckdb
 import numpy as np
 import pandas as pd
 
-RAW = Path(__file__).resolve().parents[2] / "data" / "raw"
+from dengue.config import BR_HORIZON, BR_INC, BR_MIN_POP, RAW
+
 FULL = RAW / "dataset_multimodal_v8.parquet"
 BENCH = RAW / "dataset_benchmark_v1.parquet"
 
-HORIZON = 4  # weeks ahead (~1 month early warning)
-OUTBREAK_INC = 100.0  # cases per 100k per week => epidemic level
-MIN_POP = 50_000  # municipalities where surveillance counts are stable
+# Re-exported so existing callers keep working. These are the flagship 14-day
+# configuration and now come from one place: this module used to say HORIZON = 4
+# while the seven scripts that produced every published Brazil number overrode it
+# to 2, which is how models/model2_outbreak.joblib came to be saved at a horizon
+# no report describes. See docs/adr/0002-brazil-horizon.md.
+HORIZON = BR_HORIZON
+OUTBREAK_INC = BR_INC
+MIN_POP = BR_MIN_POP
 
 STATIC = [
     "elev_mean",

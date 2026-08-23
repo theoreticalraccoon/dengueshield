@@ -222,8 +222,13 @@ def build_panel() -> pd.DataFrame:
     return df.sort_values(["district", "week_start"]).reset_index(drop=True)
 
 
-def add_features(df: pd.DataFrame, horizon: int = 2, outbreak_inc: float = 100.0) -> pd.DataFrame:
-    """Lags, rolls and the forward-shifted outbreak label - mirrors the Brazil pipeline."""
+def add_base_features(df: pd.DataFrame) -> pd.DataFrame:
+    """Lags, rolls, growth and seasonality. No label, and nothing dropped.
+
+    Split out from `add_features` because emergence needs the identical predictors
+    under a different label and a different eligibility rule. It previously carried
+    a character-for-character copy of this body.
+    """
     df = df.sort_values(["district", "week_start"]).copy()
     g = df.groupby("district", sort=False)
     for L in (1, 2, 4, 8):
@@ -247,6 +252,18 @@ def add_features(df: pd.DataFrame, horizon: int = 2, outbreak_inc: float = 100.0
     wk = df.week_start.dt.isocalendar().week.astype(int)
     df["week_sin"] = np.sin(2 * np.pi * wk / 52.0)
     df["week_cos"] = np.cos(2 * np.pi * wk / 52.0)
+    return df
+
+
+def add_features(df: pd.DataFrame, horizon: int = 2, outbreak_inc: float = 100.0) -> pd.DataFrame:
+    """Base features plus the forward-shifted CONTINUATION label.
+
+    The label asks whether incidence is at or above `outbreak_inc` exactly
+    `horizon` weeks later, of every district. Emergence asks a different question
+    of a subset - see dengue.emergence.
+    """
+    df = add_base_features(df)
+    g = df.groupby("district", sort=False)
 
     df["y_inc_future"] = g["p_inc100k"].shift(-horizon)
     df["y"] = (df.y_inc_future >= outbreak_inc).astype(float)

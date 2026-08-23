@@ -42,12 +42,19 @@ jobs:
       - name: Check for newer surveillance data
         id: check
         run: |
-          python refresh_data.py --check | tee check.log
-          if grep -q "Already current" check.log; then
-            echo "stale=false" >> "$GITHUB_OUTPUT"
-          else
-            echo "stale=true" >> "$GITHUB_OUTPUT"
-          fi
+          # Branch on the exit status, not on log prose. This used to grep stdout
+          # for "Already current", so rewording a log line silently inverted the
+          # branch - and any crash looked like "stale", triggering a full refresh.
+          set +e
+          python refresh_data.py --check
+          status=$?
+          set -e
+          case "$status" in
+            0)  echo "stale=false" >> "$GITHUB_OUTPUT" ;;
+            10) echo "stale=true"  >> "$GITHUB_OUTPUT" ;;
+            *)  echo "::error::refresh_data.py --check failed with status $status"
+                exit "$status" ;;
+          esac
 
       - name: Refresh data and regenerate forecasts
         if: steps.check.outputs.stale == 'true' || inputs.force

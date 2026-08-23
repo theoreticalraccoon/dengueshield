@@ -24,11 +24,14 @@ warnings.filterwarnings("ignore")
 import lightgbm as lgb
 import numpy as np
 import pandas as pd
-from sklearn.metrics import accuracy_score, average_precision_score, f1_score, recall_score
+from sklearn.metrics import accuracy_score, average_precision_score, recall_score
 
+from dengue.config import BR_HORIZON, BR_INC, SEED
+from dengue.experiment import pos_weight, split
+from dengue.metrics import threshold_for_f1
 from dengue.model2_outbreak import build_supervised, feature_columns, load_panel
 
-HORIZON, OUTBREAK_INC, SEED = 2, 100.0, 42
+HORIZON, OUTBREAK_INC = BR_HORIZON, BR_INC
 PARAMS = {
     "objective": "binary",
     "learning_rate": 0.03,
@@ -172,18 +175,15 @@ def evaluate(delay_weeks):
         s = s.sort_values(["codigo_ibge", "data_iniSE"]).copy()
         s[f] = shifted
         s = s.dropna(subset=[c for c in f if c.startswith("casos")])
-    tr = s[s.anio <= 2021]
-    va = s[(s.anio > 2021) & (s.anio <= 2023)]
-    te = s[s.anio > 2023]
-    spw = (tr.y.values == 0).sum() / max((tr.y.values == 1).sum(), 1)
+    tr, va, te = split(s)
+    spw = pos_weight(tr.y.values)
     m = lgb.train(
         {**PARAMS, "scale_pos_weight": spw},
         lgb.Dataset(tr[f], label=tr.y.values),
         num_boost_round=700,
     )
     pv, pt = m.predict(va[f]), m.predict(te[f])
-    qs = np.unique(np.quantile(pv, np.linspace(0.5, 0.999, 150)))
-    thr = max((f1_score(va.y.values, (pv >= t).astype(int), zero_division=0), t) for t in qs)[1]
+    thr = threshold_for_f1(va.y.values, pv, grid=150)
     yh = (pt >= thr).astype(int)
     return {
         "delay_weeks": delay_weeks,

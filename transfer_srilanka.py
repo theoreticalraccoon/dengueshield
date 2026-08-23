@@ -34,11 +34,12 @@ from sklearn.metrics import (
     roc_auc_score,
 )
 
+from dengue.config import BR_HORIZON, BR_INC
+from dengue.metrics import pos_weight
 from dengue.model2_outbreak import build_supervised, load_panel
 from dengue.srilanka import COMMON_FEATURES, add_features, build_panel
 
-HORIZON = 2  # 14-day early warning - the flagship configuration
-BR_INC = 100.0  # Brazil epidemic threshold, per 100k per week
+HORIZON = BR_HORIZON  # 14-day early warning - the flagship configuration
 TRAIN_END, VAL_END = 2021, 2023
 
 PARAMS = {
@@ -133,7 +134,7 @@ br_tr, br_va, br_te = split(br)
 print(f"  Brazil train={len(br_tr)} val={len(br_va)}  outbreak_rate(train)={br_tr.y.mean():.4f}")
 
 # Brazil model on the shared feature space
-spw = (br_tr.y.values == 0).sum() / max((br_tr.y.values == 1).sum(), 1)
+spw = pos_weight(br_tr.y.values)
 br_ds = lgb.Dataset(br_tr[feats], label=br_tr.y.values, free_raw_data=False)
 br_model = lgb.train({**PARAMS, "scale_pos_weight": spw}, br_ds, num_boost_round=700)
 br_val_p = br_model.predict(br_va[feats])
@@ -166,7 +167,7 @@ for tname, thr_inc in sl_thresholds.items():
     rows.append(metrics(yte, p_te, tune_thr(sl_va.y.values, p_va), "2_brazil_zeroshot"))
 
     # 3. Sri Lanka only
-    spw_sl = (sl_tr.y.values == 0).sum() / max((sl_tr.y.values == 1).sum(), 1)
+    spw_sl = pos_weight(sl_tr.y.values)
     sl_ds = lgb.Dataset(sl_tr[feats], label=sl_tr.y.values, free_raw_data=False)
     sl_model = lgb.train({**PARAMS, "scale_pos_weight": spw_sl}, sl_ds, num_boost_round=500)
     p_va = sl_model.predict(sl_va[feats])

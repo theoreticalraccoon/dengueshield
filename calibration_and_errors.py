@@ -36,23 +36,12 @@ from sklearn.metrics import (
     roc_auc_score,
 )
 
-from dengue.model2_outbreak import build_supervised, feature_columns, load_panel
+from dengue.config import BR_HORIZON, BR_INC, LGBM_PARAMS
+from dengue.experiment import setup
 
-HORIZON = 2  # the flagship 14-day early-warning configuration
-OUTBREAK_INC = 100.0
-SEED = 42
-PARAMS = {
-    "objective": "binary",
-    "learning_rate": 0.03,
-    "num_leaves": 127,
-    "min_child_samples": 40,
-    "subsample": 0.85,
-    "subsample_freq": 1,
-    "colsample_bytree": 0.8,
-    "reg_lambda": 5.0,
-    "verbose": -1,
-    "seed": SEED,
-}
+HORIZON = BR_HORIZON  # the flagship 14-day early-warning configuration
+OUTBREAK_INC = BR_INC
+PARAMS = LGBM_PARAMS
 
 
 def ece(y, p, n_bins=15):
@@ -90,14 +79,12 @@ def reliability(y, p, n_bins=12):
 
 
 print(f"loading panel (horizon={HORIZON}w) ...", flush=True)
-sup = build_supervised(load_panel(), horizon=HORIZON, outbreak_inc=OUTBREAK_INC)
-feats = feature_columns(sup)
-tr = sup[sup.anio <= 2021]
-va = sup[(sup.anio > 2021) & (sup.anio <= 2023)]
-te = sup[sup.anio > 2023].copy()
+run = setup(horizon=HORIZON, outbreak_inc=OUTBREAK_INC)
+sup, feats = run.sup, run.feats
+tr, va, te = run.tr, run.va, run.te.copy()
 print(f"  train={len(tr)} val={len(va)} test={len(te)}  test prevalence={te.y.mean():.4f}")
 
-spw = (tr.y.values == 0).sum() / max((tr.y.values == 1).sum(), 1)
+spw = run.spw
 model = lgb.train(
     {**PARAMS, "scale_pos_weight": spw},
     lgb.Dataset(tr[feats], label=tr.y.values),
@@ -156,6 +143,10 @@ plt.close()
 # ================================================================ ERROR ANALYSIS
 print(f"\n{'=' * 76}\nERROR ANALYSIS\n{'=' * 76}")
 p_use = p_te_cal if better == "calibrated" else p_te
+# NOT dengue.metrics.threshold_for_f1: the candidate grid is drawn from the RAW
+# validation scores while F1 is scored against the possibly-calibrated ones, so
+# the shared helper (which derives its grid from the array it scores) would give
+# a different threshold. Left as-is rather than silently changing a result.
 qs = np.unique(np.quantile(p_va, np.linspace(0.5, 0.999, 200)))
 p_va_use = iso.predict(p_va) if better == "calibrated" else p_va
 thr = float(

@@ -18,6 +18,7 @@ from sklearn.metrics import (
     roc_auc_score,
 )
 
+from dengue.metrics import pos_weight
 from dengue.model2_outbreak import (
     HORIZON,
     MIN_POP,
@@ -96,7 +97,7 @@ rows.append(
 from lightgbm import LGBMClassifier
 from xgboost import XGBClassifier
 
-spw = (ytr == 0).sum() / max((ytr == 1).sum(), 1)
+spw = pos_weight(ytr)
 models = {
     "LightGBM": LGBMClassifier(
         n_estimators=1200,

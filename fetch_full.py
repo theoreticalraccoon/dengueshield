@@ -1,3 +1,16 @@
+"""Download the Brazil multimodal panel from Zenodo, resumably.
+
+The 565 MB parquet behind Model 2 does not ship with the repo, so this is the
+first step on a clean checkout if you intend to retrain or re-run any Brazil
+analysis. The app and the weekly refresh do NOT need it - they only use the
+Sri Lanka inputs, which are committed.
+
+Resumable on purpose: the transfer routinely drops part-way, so this issues a
+ranged request from wherever the local file left off and retries.
+
+    python fetch_full.py     # safe to re-run; stops once the file is complete
+"""
+
 import pathlib
 import time
 

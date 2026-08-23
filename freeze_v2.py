@@ -19,6 +19,10 @@ from pathlib import Path
 import joblib
 import pandas as pd
 
+sys.path.insert(0, "src")
+
+from dengue import artifacts
+
 ROOT = Path(__file__).parent
 OUT = ROOT / "frozen" / "v2_final"
 if OUT.exists():
@@ -50,9 +54,22 @@ for m in MODELS:
     if src.exists():
         shutil.copy2(src, OUT / "models" / m)
 
-for r in sorted((ROOT / "reports").glob("*")):
-    if r.is_file():
-        shutil.copy2(r, OUT / "reports" / r.name)
+# Declared, not globbed. This used to copy every file in reports/, so whatever
+# happened to be on disk at freeze time entered the "immutable" release - the
+# weekly refresh's freshness stamps, the situation tables, the emergence output.
+# A release should contain what it declares. See src/dengue/artifacts.py.
+for r in sorted(artifacts.freezable(ROOT / "reports")):
+    shutil.copy2(r, OUT / "reports" / r.name)
+
+undeclared = sorted(
+    p.name
+    for p in (ROOT / "reports").glob("*")
+    if p.is_file() and p.name not in artifacts.BY_NAME
+)
+if undeclared:
+    print(f"  note: {len(undeclared)} report files not in the inventory, excluded:")
+    for name in undeclared:
+        print(f"    - {name}")
 
 CODE = [
     "app.py",
@@ -70,6 +87,10 @@ CODE = [
     "calibration_and_errors.py",
     "transfer_srilanka.py",
     "finalize_srilanka.py",
+    "finalize_emergence.py",
+    "derive_reports.py",
+    "leakage_audit.py",
+    "verify_fixes.py",
     "freeze_v2.py",
 ]
 for c in CODE:
