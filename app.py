@@ -543,7 +543,7 @@ elif screen == "Outbreak forecast":
 
         st.markdown("---")
 
-        left, right = st.columns([5, 4])
+        left, right = st.columns([1, 1])
         with left:
             fig = px.scatter_map(
                 d, lat="lat", lon="lon", size="casos", color="band",
@@ -559,26 +559,29 @@ elif screen == "Outbreak forecast":
                               font={"family": "Public Sans, sans-serif"})
             st.plotly_chart(fig, width="stretch")
         with right:
-            show = d[["district", "status", "casos", "continuation_risk",
-                      "emergence_risk"]].copy()
-            show.columns = ["District", "Status", "Cases", "Continuation", "Emergence"]
+            # Status is deliberately omitted: the triage panel above already groups
+            # every district by it, and a blank Emergence cell says the same thing.
+            # Dropping it leaves room to spell both probability columns out in full
+            # so nothing needs scrolling to read.
+            show = d[["district", "casos", "continuation_risk", "emergence_risk"]].copy()
+            show.columns = ["District", "Cases", "Continuation", "Emergence"]
             st.dataframe(
                 show.style.format({"Cases": "{:,.0f}", "Continuation": "{:.2f}",
                                    "Emergence": "{:.2f}"}, na_rep="—"),
                 hide_index=True, width="stretch", height=500,
                 column_config={
-                    "District": st.column_config.TextColumn(width="medium"),
-                    "Status": st.column_config.TextColumn(width="small"),
+                    "District": st.column_config.TextColumn(width="small"),
                     "Cases": st.column_config.NumberColumn(width="small"),
                     "Continuation": st.column_config.NumberColumn(
-                        "Cont.", width="small",
+                        width="small",
                         help="Probability an existing outbreak persists 14 days"),
                     "Emergence": st.column_config.NumberColumn(
-                        "Emerg.", width="small",
+                        width="small",
                         help="Probability a new outbreak begins within 1-4 weeks"),
                 })
             st.markdown('<p class="note">Emergence is blank where a district is already '
-                        'in outbreak.</p>', unsafe_allow_html=True)
+                        'in outbreak. Status is in the panel above.</p>',
+                        unsafe_allow_html=True)
 
         st.markdown("---")
         sel = st.selectbox("District detail", d.district.tolist())
