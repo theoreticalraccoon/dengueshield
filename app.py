@@ -40,6 +40,20 @@ STYLE = f"""
 html, body, [class*="st-"], .stMarkdown {{
   font-family: 'Public Sans', -apple-system, 'Segoe UI', sans-serif;
 }}
+
+/* Streamlit draws its chrome (sidebar collapse, expander chevrons, dataframe
+   controls) as Material Symbols LIGATURES. The broad rule above would otherwise
+   override that font and print the ligature names as literal text -
+   "keyboard_double_arrow_left", "arrow_drop_down". Put the icon font back. */
+[data-testid="stIconMaterial"], [data-testid="stExpanderToggleIcon"],
+span[class*="material-symbols"], span[class*="material-icons"],
+.material-icons, .material-icons-outlined, .material-symbols-rounded {{
+  font-family: 'Material Symbols Rounded', 'Material Icons' !important;
+  font-weight: normal !important; font-style: normal !important;
+  letter-spacing: normal !important; text-transform: none !important;
+  white-space: nowrap; word-wrap: normal; direction: ltr;
+  -webkit-font-feature-settings: 'liga'; font-feature-settings: 'liga';
+}}
 .stApp {{ background: {PAPER}; }}
 .block-container {{ padding-top: 2.6rem; max-width: 1180px; }}
 
@@ -529,7 +543,7 @@ elif screen == "Outbreak forecast":
 
         st.markdown("---")
 
-        left, right = st.columns([3, 2])
+        left, right = st.columns([5, 4])
         with left:
             fig = px.scatter_map(
                 d, lat="lat", lon="lon", size="casos", color="band",
@@ -551,7 +565,18 @@ elif screen == "Outbreak forecast":
             st.dataframe(
                 show.style.format({"Cases": "{:,.0f}", "Continuation": "{:.2f}",
                                    "Emergence": "{:.2f}"}, na_rep="—"),
-                hide_index=True, width="stretch", height=500)
+                hide_index=True, width="stretch", height=500,
+                column_config={
+                    "District": st.column_config.TextColumn(width="medium"),
+                    "Status": st.column_config.TextColumn(width="small"),
+                    "Cases": st.column_config.NumberColumn(width="small"),
+                    "Continuation": st.column_config.NumberColumn(
+                        "Cont.", width="small",
+                        help="Probability an existing outbreak persists 14 days"),
+                    "Emergence": st.column_config.NumberColumn(
+                        "Emerg.", width="small",
+                        help="Probability a new outbreak begins within 1-4 weeks"),
+                })
             st.markdown('<p class="note">Emergence is blank where a district is already '
                         'in outbreak.</p>', unsafe_allow_html=True)
 
@@ -642,9 +667,11 @@ hospital preparedness raised""", language=None)
             f.add_trace(go.Scatter(x=ro.test_year, y=ro.trivial_acc, name="Guess no outbreak",
                                    mode="lines+markers",
                                    line={"dash": "dot", "width": 1.5, "color": FAINT}))
-            f.update_layout(**PLOT_LAYOUT, height=280,
-                            title="Retrained each year, tested on the next",
-                            legend={"orientation": "h", "y": 1.16, "title": ""})
+            f.update_layout(**PLOT_LAYOUT, height=300,
+                            title={"text": "Retrained each year, tested on the next",
+                                   "y": 0.97, "yanchor": "top"},
+                            legend={"orientation": "h", "y": -0.18, "x": 0,
+                                    "title": ""})
             f.update_yaxes(range=[0.7, 1.0], title="Accuracy")
             st.plotly_chart(f, width="stretch")
 
