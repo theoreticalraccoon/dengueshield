@@ -9,10 +9,16 @@ version = "2.0.0"
 description = "Dengue screening and outbreak early warning"
 requires-python = ">=3.11"
 
+[tool.pytest.ini_options]
+# The package lives under src/ and is imported as `dengue`; pytest puts it on the
+# path so tests need no sys.path preamble of their own.
+pythonpath = ["src"]
+testpaths = ["tests"]
+
 [tool.ruff]
 line-length = 100
 target-version = "py311"
-extend-exclude = [".venv", "frozen", "graphify-out", "data", "reports", "models"]
+extend-exclude = [".venv", "frozen", "data", "reports", "models"]
 src = ["src", "."]
 
 [tool.ruff.lint]

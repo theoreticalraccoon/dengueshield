@@ -17,3 +17,9 @@ models/model2_lstm_scalers.joblib
 !data/raw/srilanka_weather_daily.parquet
 data/raw/wer/
 data/raw/sl_weather_parts/
+
+# Tool caches. graphify-out/ is a knowledge-graph tool's output (62 files, 2.6 MB)
+# that was committed by accident; nothing in the project reads it.
+graphify-out/
+.ruff_cache/
+.pytest_cache/
