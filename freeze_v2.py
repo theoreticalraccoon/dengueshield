@@ -7,7 +7,13 @@ Every artifact is SHA-256 hashed into MANIFEST.json.
 
 After this runs, the models must not be modified for the final report.
 """
-import hashlib, json, shutil, subprocess, sys, platform
+
+import hashlib
+import json
+import platform
+import shutil
+import subprocess
+import sys
 from pathlib import Path
 
 import joblib
@@ -31,9 +37,14 @@ def sha256(p: Path) -> str:
 
 
 # ------------------------------------------------------------------ copy artifacts
-MODELS = ["model1_screening.joblib", "peds_complications.joblib",
-          "model2_outbreak.joblib", "srilanka_outbreak.joblib",
-          "model2_lstm.pt", "model2_lstm_scalers.joblib"]
+MODELS = [
+    "model1_screening.joblib",
+    "peds_complications.joblib",
+    "model2_outbreak.joblib",
+    "srilanka_outbreak.joblib",
+    "model2_lstm.pt",
+    "model2_lstm_scalers.joblib",
+]
 for m in MODELS:
     src = ROOT / "models" / m
     if src.exists():
@@ -43,16 +54,30 @@ for r in sorted((ROOT / "reports").glob("*")):
     if r.is_file():
         shutil.copy2(r, OUT / "reports" / r.name)
 
-CODE = ["app.py", "run_audit.py", "transfer_test.py", "train_model1.py",
-        "finalize_model1.py", "run_ablation.py", "finalize_peds.py",
-        "train_model2.py", "robustness_model2.py", "train_lstm.py",
-        "shap_model2.py", "spatial_and_ablation.py", "calibration_and_errors.py",
-        "transfer_srilanka.py", "finalize_srilanka.py", "freeze_v2.py"]
+CODE = [
+    "app.py",
+    "run_audit.py",
+    "transfer_test.py",
+    "train_model1.py",
+    "finalize_model1.py",
+    "run_ablation.py",
+    "finalize_peds.py",
+    "train_model2.py",
+    "robustness_model2.py",
+    "train_lstm.py",
+    "shap_model2.py",
+    "spatial_and_ablation.py",
+    "calibration_and_errors.py",
+    "transfer_srilanka.py",
+    "finalize_srilanka.py",
+    "freeze_v2.py",
+]
 for c in CODE:
     if (ROOT / c).exists():
         shutil.copy2(ROOT / c, OUT / "code" / c)
-shutil.copytree(ROOT / "src" / "dengue", OUT / "code" / "dengue",
-                ignore=shutil.ignore_patterns("__pycache__"))
+shutil.copytree(
+    ROOT / "src" / "dengue", OUT / "code" / "dengue", ignore=shutil.ignore_patterns("__pycache__")
+)
 
 # written deliverables travel with the release
 for doc in ["REPORT.md", "README.md"]:
@@ -93,8 +118,7 @@ def describe(path: Path) -> dict:
     return d
 
 
-provenance = {m: describe(OUT / "models" / m)
-              for m in MODELS if (OUT / "models" / m).exists()}
+provenance = {m: describe(OUT / "models" / m) for m in MODELS if (OUT / "models" / m).exists()}
 
 
 def load_json(name):
@@ -109,16 +133,28 @@ def load_csv(name):
 
 # ------------------------------------------------------------------- package env
 try:
-    pkgs = subprocess.run([sys.executable, "-m", "pip", "freeze"],
-                          capture_output=True, text=True, timeout=120).stdout.splitlines()
+    pkgs = subprocess.run(
+        [sys.executable, "-m", "pip", "freeze"], capture_output=True, text=True, timeout=120
+    ).stdout.splitlines()
 except Exception:
     pkgs = []
 if not pkgs:
     pkgs = []
-    for mod in ["numpy", "pandas", "scikit-learn", "lightgbm", "xgboost",
-                "torch", "shap", "streamlit", "duckdb", "plotly"]:
+    for mod in [
+        "numpy",
+        "pandas",
+        "scikit-learn",
+        "lightgbm",
+        "xgboost",
+        "torch",
+        "shap",
+        "streamlit",
+        "duckdb",
+        "plotly",
+    ]:
         try:
             import importlib
+
             name = {"scikit-learn": "sklearn"}.get(mod, mod)
             pkgs.append(f"{mod}=={importlib.import_module(name).__version__}")
         except Exception:
@@ -133,34 +169,46 @@ manifest = {
         "platform": platform.platform(),
         "packages": pkgs,
     },
-    "random_seeds": {"global": 42, "model1_nested_cv": 42, "model2_lightgbm": 42,
-                     "lstm_torch": 42, "spatial_holdout_split": 42},
-
+    "random_seeds": {
+        "global": 42,
+        "model1_nested_cv": 42,
+        "model2_lightgbm": 42,
+        "lstm_torch": 42,
+        "spatial_holdout_split": 42,
+    },
     "three_distinct_tasks": {
         "A_dengue_screening": {
             "question": "Does this patient appear likely to have dengue?",
             "population": "1,511 febrile patients, 19 CBC variables (Bangladesh)",
-            "roc_auc": 0.6811, "pr_auc": 0.7790, "accuracy": 0.7617,
-            "sensitivity": 0.9729, "specificity": 0.3025, "brier": 0.1804,
+            "roc_auc": 0.6811,
+            "pr_auc": 0.7790,
+            "accuracy": 0.7617,
+            "sensitivity": 0.9729,
+            "specificity": 0.3025,
+            "brier": 0.1804,
             "trivial_baseline_accuracy": 0.6850,
             "note": "Modest. A CBC alone is not a reliable dengue diagnostic.",
         },
         "B_complication_screening": {
             "question": "Among dengue patients, who needs closer monitoring?",
             "population": "303 paediatric dengue admissions",
-            "roc_auc": 0.8741, "pr_auc": 0.7311, "sensitivity": 0.9048,
-            "specificity": 0.6375, "npv": 0.9623,
+            "roc_auc": 0.8741,
+            "pr_auc": 0.7311,
+            "sensitivity": 0.9048,
+            "specificity": 0.6375,
+            "npv": 0.9623,
             "note": "Tuned for sensitivity; safe to rule out, not to rule in.",
         },
         "C_outbreak_forecasting": {
             "question": "Which districts will see an outbreak in the next 14 days?",
             "population": "699 Brazilian municipalities, 66,000 test municipality-weeks",
-            "pr_auc": 0.9614, "accuracy": 0.9673, "recall": 0.8942,
+            "pr_auc": 0.9614,
+            "accuracy": 0.9673,
+            "recall": 0.8942,
             "trivial_baseline_accuracy": 0.8544,
             "note": "Do NOT combine with A or B into a single 'dengue accuracy'.",
         },
     },
-
     "model_provenance": provenance,
     "metrics": {
         "model1_operating_points": load_json("model1_operating_points.json"),
@@ -175,7 +223,6 @@ manifest = {
         "dataset_audit": load_csv("dataset_audit.csv"),
         "ablation_peds": load_csv("ablation_peds.csv"),
     },
-
     "key_findings": [
         "Three of four public dengue screening datasets are synthetic or rule-labelled; "
         "models trained on them collapse to AUC 0.53-0.61 on real patients.",
@@ -207,13 +254,15 @@ hashes = {}
 for f in sorted(OUT.rglob("*")):
     if f.is_file() and f.name != "HASHES.json":
         hashes[str(f.relative_to(OUT)).replace("\\", "/")] = {
-            "sha256": sha256(f), "bytes": f.stat().st_size}
+            "sha256": sha256(f),
+            "bytes": f.stat().st_size,
+        }
 (OUT / "HASHES.json").write_text(json.dumps(hashes, indent=2))
 
 total = sum(v["bytes"] for v in hashes.values())
-print(f"FROZEN v2_final: {len(hashes)} artifacts, {total/1e6:.1f} MB")
-print(f"  models   : {len(list((OUT/'models').glob('*')))}")
-print(f"  reports  : {len(list((OUT/'reports').glob('*')))}")
-print(f"  code     : {len(list((OUT/'code').rglob('*.py')))} python files")
-print(f"  manifest : {(OUT/'MANIFEST.json').stat().st_size/1024:.1f} KB")
+print(f"FROZEN v2_final: {len(hashes)} artifacts, {total / 1e6:.1f} MB")
+print(f"  models   : {len(list((OUT / 'models').glob('*')))}")
+print(f"  reports  : {len(list((OUT / 'reports').glob('*')))}")
+print(f"  code     : {len(list((OUT / 'code').rglob('*.py')))} python files")
+print(f"  manifest : {(OUT / 'MANIFEST.json').stat().st_size / 1024:.1f} KB")
 print("  hashes   : SHA-256 for every artifact -> HASHES.json")

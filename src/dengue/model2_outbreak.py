@@ -13,28 +13,80 @@ Non-negotiables enforced here:
   * Trivial baselines (persistence, seasonal climatology) are reported alongside,
     because a model that cannot beat persistence has learned nothing.
 """
+
 from __future__ import annotations
-import numpy as np, pandas as pd, duckdb
+
 from pathlib import Path
+
+import duckdb
+import numpy as np
+import pandas as pd
 
 RAW = Path(__file__).resolve().parents[2] / "data" / "raw"
 FULL = RAW / "dataset_multimodal_v8.parquet"
 BENCH = RAW / "dataset_benchmark_v1.parquet"
 
-HORIZON = 4                 # weeks ahead (~1 month early warning)
-OUTBREAK_INC = 100.0        # cases per 100k per week => epidemic level
-MIN_POP = 50_000            # municipalities where surveillance counts are stable
+HORIZON = 4  # weeks ahead (~1 month early warning)
+OUTBREAK_INC = 100.0  # cases per 100k per week => epidemic level
+MIN_POP = 50_000  # municipalities where surveillance counts are stable
 
-STATIC = ["elev_mean","pct_tree_cover","pct_builtup","pct_cropland","pct_water",
-          "pct_grassland","population_density","population_total","median_age",
-          "sex_ratio","water_supply_pct","sewage_pct","garbage_collection_pct","area_km2"]
-DYNAMIC = ["casos","p_inc100k","Rt","tempmin","tempmed","tempmax","umidmin","umidmed","umidmax",
-           "precip_total_semana","precip_media_semana","precip_max_semana","dias_lluvia_semana",
-           "NDVI_mean","NDVI_std","EVI_mean","LST_Day_mean","LST_Night_mean","nino34","soi",
-           "casos_lag_1","casos_lag_2","casos_lag_4","casos_lag_8","Rt_lag_1","Rt_lag_2","Rt_lag_4",
-           "precip_total_semana_lag_1","precip_total_semana_lag_4","tempmed_lag_1","tempmed_lag_4",
-           "umidmed_lag_1","umidmed_lag_4","casos_roll4_mean","casos_roll8_mean",
-           "precip_roll4_sum","precip_roll8_sum","tempmed_roll4_mean","tempmed_roll8_mean"]
+STATIC = [
+    "elev_mean",
+    "pct_tree_cover",
+    "pct_builtup",
+    "pct_cropland",
+    "pct_water",
+    "pct_grassland",
+    "population_density",
+    "population_total",
+    "median_age",
+    "sex_ratio",
+    "water_supply_pct",
+    "sewage_pct",
+    "garbage_collection_pct",
+    "area_km2",
+]
+DYNAMIC = [
+    "casos",
+    "p_inc100k",
+    "Rt",
+    "tempmin",
+    "tempmed",
+    "tempmax",
+    "umidmin",
+    "umidmed",
+    "umidmax",
+    "precip_total_semana",
+    "precip_media_semana",
+    "precip_max_semana",
+    "dias_lluvia_semana",
+    "NDVI_mean",
+    "NDVI_std",
+    "EVI_mean",
+    "LST_Day_mean",
+    "LST_Night_mean",
+    "nino34",
+    "soi",
+    "casos_lag_1",
+    "casos_lag_2",
+    "casos_lag_4",
+    "casos_lag_8",
+    "Rt_lag_1",
+    "Rt_lag_2",
+    "Rt_lag_4",
+    "precip_total_semana_lag_1",
+    "precip_total_semana_lag_4",
+    "tempmed_lag_1",
+    "tempmed_lag_4",
+    "umidmed_lag_1",
+    "umidmed_lag_4",
+    "casos_roll4_mean",
+    "casos_roll8_mean",
+    "precip_roll4_sum",
+    "precip_roll8_sum",
+    "tempmed_roll4_mean",
+    "tempmed_roll8_mean",
+]
 
 
 def _date_exact_lag(df: pd.DataFrame, col: str, weeks: int) -> pd.Series:
@@ -44,10 +96,13 @@ def _date_exact_lag(df: pd.DataFrame, col: str, weeks: int) -> pd.Series:
     joins on the actual date instead, so a missing week yields NaN rather than
     silently borrowing the week before it.
     """
-    src = df[["codigo_ibge", "data_iniSE", col]].rename(
-        columns={"data_iniSE": "_src", col: "_val"})
-    left = pd.DataFrame({"codigo_ibge": df["codigo_ibge"].values,
-                         "_src": df["data_iniSE"].values - pd.Timedelta(weeks=weeks)})
+    src = df[["codigo_ibge", "data_iniSE", col]].rename(columns={"data_iniSE": "_src", col: "_val"})
+    left = pd.DataFrame(
+        {
+            "codigo_ibge": df["codigo_ibge"].values,
+            "_src": df["data_iniSE"].values - pd.Timedelta(weeks=weeks),
+        }
+    )
     return left.merge(src, on=["codigo_ibge", "_src"], how="left")["_val"].values
 
 
@@ -61,17 +116,18 @@ def recompute_dynamics(df: pd.DataFrame) -> pd.DataFrame:
     (no future data is involved), but it is still wrong, so the features are rebuilt
     here from the base observations.
     """
-    df = (df.drop_duplicates(["codigo_ibge", "data_iniSE"])
-            .sort_values(["codigo_ibge", "data_iniSE"])
-            .reset_index(drop=True))
+    df = (
+        df.drop_duplicates(["codigo_ibge", "data_iniSE"])
+        .sort_values(["codigo_ibge", "data_iniSE"])
+        .reset_index(drop=True)
+    )
 
     for L in (1, 2, 4, 8):
         if "casos" in df:
             df[f"casos_lag_{L}"] = _date_exact_lag(df, "casos", L)
         if "Rt" in df and L in (1, 2, 4):
             df[f"Rt_lag_{L}"] = _date_exact_lag(df, "Rt", L)
-    for base, lags in (("precip_total_semana", (1, 4)), ("tempmed", (1, 4)),
-                       ("umidmed", (1, 4))):
+    for base, lags in (("precip_total_semana", (1, 4)), ("tempmed", (1, 4)), ("umidmed", (1, 4))):
         if base in df:
             for L in lags:
                 df[f"{base}_lag_{L}"] = _date_exact_lag(df, base, L)
@@ -80,8 +136,10 @@ def recompute_dynamics(df: pd.DataFrame) -> pd.DataFrame:
     # A window is only emitted when EVERY constituent week is present - otherwise a
     # "4-week mean" computed from one week would masquerade as a full window.
     def _window(col, n):
-        return pd.concat([pd.Series(_date_exact_lag(df, col, k), index=df.index)
-                          for k in range(1, n + 1)], axis=1)
+        return pd.concat(
+            [pd.Series(_date_exact_lag(df, col, k), index=df.index) for k in range(1, n + 1)],
+            axis=1,
+        )
 
     def _agg(col, n, how):
         w = _window(col, n)
@@ -100,28 +158,40 @@ def recompute_dynamics(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-def load_panel(path: Path | None = None, min_pop: int = MIN_POP,
-               rebuild_lags: bool = True) -> pd.DataFrame:
+def load_panel(
+    path: Path | None = None, min_pop: int = MIN_POP, rebuild_lags: bool = True
+) -> pd.DataFrame:
     """Load the municipality-week panel, restricted to municipalities with stable counts.
 
     `rebuild_lags=True` deduplicates the panel and recomputes every lag/rolling feature
     date-exactly. Pass False only to reproduce the pre-audit frozen v2 numbers.
     """
     path = path or (FULL if FULL.exists() else BENCH)
-    cols = ["codigo_ibge","municipio","estado","data_iniSE","anio","semana","pop"] + DYNAMIC + STATIC
+    cols = [
+        "codigo_ibge",
+        "municipio",
+        "estado",
+        "data_iniSE",
+        "anio",
+        "semana",
+        "pop",
+        *DYNAMIC,
+        *STATIC,
+    ]
     con = duckdb.connect()
     avail = {r[0] for r in con.execute(f"DESCRIBE SELECT * FROM '{path.as_posix()}'").fetchall()}
     cols = [c for c in dict.fromkeys(cols) if c in avail]
     df = con.execute(f"""
-        SELECT {','.join('"'+c+'"' for c in cols)} FROM '{path.as_posix()}'
+        SELECT {",".join('"' + c + '"' for c in cols)} FROM '{path.as_posix()}'
         WHERE pop >= {min_pop} ORDER BY codigo_ibge, data_iniSE
     """).df()
     con.close()
     return recompute_dynamics(df) if rebuild_lags else df
 
 
-def build_supervised(df: pd.DataFrame, horizon: int = HORIZON,
-                     outbreak_inc: float = OUTBREAK_INC) -> pd.DataFrame:
+def build_supervised(
+    df: pd.DataFrame, horizon: int = HORIZON, outbreak_inc: float = OUTBREAK_INC
+) -> pd.DataFrame:
     """Attach the forward-shifted outbreak label and seasonality; drop unusable rows."""
     df = df.sort_values(["codigo_ibge", "data_iniSE"]).copy()
     g = df.groupby("codigo_ibge", sort=False)
@@ -152,9 +222,8 @@ def build_supervised(df: pd.DataFrame, horizon: int = HORIZON,
 
 
 def feature_columns(df: pd.DataFrame) -> list[str]:
-    extra = ["week_sin","week_cos","casos_growth_1","casos_growth_4","inc_roll4"]
-    cols = [c for c in DYNAMIC + STATIC + extra if c in df.columns]
-    return cols
+    extra = ["week_sin", "week_cos", "casos_growth_1", "casos_growth_4", "inc_roll4"]
+    return [c for c in DYNAMIC + STATIC + extra if c in df.columns]
 
 
 def temporal_split(df: pd.DataFrame, train_end=2021, val_end=2023):

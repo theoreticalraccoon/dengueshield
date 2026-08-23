@@ -14,6 +14,7 @@ Reconstructing each run bottom-to-top recovers rows of the form
 Nothing here is trusted blindly: validate_against() re-parses weeks that
 denguedatahub already covers and refuses the source if the numbers disagree.
 """
+
 from __future__ import annotations
 
 import re
@@ -33,27 +34,73 @@ INDEX_URL = "https://www.epid.gov.lk/weekly-epidemiological-report/"
 UA = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120 Safari/537.36"}
 
 # the 26 reporting districts, spelled as the panel expects them
-DISTRICTS = ["Colombo", "Gampaha", "Kalutara", "Kandy", "Matale", "NuwaraEliya",
-             "Galle", "Hambanthota", "Matara", "Jaffna", "Kilinochchi", "Mannar",
-             "Vavuniya", "Mullaitivu", "Batticaloa", "Ampara", "Trincomalee",
-             "Kurunegala", "Puttalam", "Anuradhapura", "Polonnaruwa", "Badulla",
-             "Monaragala", "Ratnapura", "Kegalle", "Kalmune"]
+DISTRICTS = [
+    "Colombo",
+    "Gampaha",
+    "Kalutara",
+    "Kandy",
+    "Matale",
+    "NuwaraEliya",
+    "Galle",
+    "Hambanthota",
+    "Matara",
+    "Jaffna",
+    "Kilinochchi",
+    "Mannar",
+    "Vavuniya",
+    "Mullaitivu",
+    "Batticaloa",
+    "Ampara",
+    "Trincomalee",
+    "Kurunegala",
+    "Puttalam",
+    "Anuradhapura",
+    "Polonnaruwa",
+    "Badulla",
+    "Monaragala",
+    "Ratnapura",
+    "Kegalle",
+    "Kalmune",
+]
 
 # how the PDF spells them -> panel spelling
 ALIASES = {
-    "nuwara eliya": "NuwaraEliya", "nuwaraeliya": "NuwaraEliya",
-    "hambantota": "Hambanthota", "hambanthota": "Hambanthota",
-    "monaragala": "Monaragala", "moneragala": "Monaragala",
-    "kalmunai": "Kalmune", "kalmune": "Kalmune",
-    "mullaitivu": "Mullaitivu", "mullativu": "Mullaitivu",
-    "kilinochchi": "Kilinochchi", "killinochchi": "Kilinochchi",
+    "nuwara eliya": "NuwaraEliya",
+    "nuwaraeliya": "NuwaraEliya",
+    "hambantota": "Hambanthota",
+    "hambanthota": "Hambanthota",
+    "monaragala": "Monaragala",
+    "moneragala": "Monaragala",
+    "kalmunai": "Kalmune",
+    "kalmune": "Kalmune",
+    "mullaitivu": "Mullaitivu",
+    "mullativu": "Mullaitivu",
+    "kilinochchi": "Kilinochchi",
+    "killinochchi": "Kilinochchi",
 }
 for _d in DISTRICTS:
     ALIASES.setdefault(_d.lower(), _d)
 
-MONTHS = {m.lower(): i for i, m in enumerate(
-    ["January", "February", "March", "April", "May", "June", "July",
-     "August", "September", "October", "November", "December"], 1)}
+MONTHS = {
+    m.lower(): i
+    for i, m in enumerate(
+        [
+            "January",
+            "February",
+            "March",
+            "April",
+            "May",
+            "June",
+            "July",
+            "August",
+            "September",
+            "October",
+            "November",
+            "December",
+        ],
+        1,
+    )
+}
 
 
 def list_reports(limit: int = 40) -> list[dict]:
@@ -126,9 +173,9 @@ def district_rows(page) -> list[tuple[str, list[int]]]:
         name = _name_of(s)
         if not name:
             continue
-        tail = s[len(name):] if s.lower().startswith(name.lower()) else s
+        tail = s[len(name) :] if s.lower().startswith(name.lower()) else s
         nums = [int(n) for n in re.findall(r"\d+", tail)]
-        if len(nums) >= 8:                      # a complete row lives in this run
+        if len(nums) >= 8:  # a complete row lives in this run
             out.append((name, nums))
             used.add(i)
             continue
@@ -178,8 +225,11 @@ def _week_dates(text: str) -> tuple[date, date] | None:
 
     # Month tokens need >= 3 letters, otherwise "22nd - 28th June" matches this
     # pattern with "d" as the first month and the single-month form never runs.
-    two = re.search(r"(\d{1,2})(?:st|nd|rd|th)?\s+([A-Za-z]{3,})\.?\s*[-–—]\s*"
-                    r"(\d{1,2})(?:st|nd|rd|th)?\s+([A-Za-z]{3,})\.?\s+(\d{4})", line)
+    two = re.search(
+        r"(\d{1,2})(?:st|nd|rd|th)?\s+([A-Za-z]{3,})\.?\s*[-–—]\s*"
+        r"(\d{1,2})(?:st|nd|rd|th)?\s+([A-Za-z]{3,})\.?\s+(\d{4})",
+        line,
+    )
     if two:
         m1, m2 = _month(two.group(2)), _month(two.group(4))
         if m1 and m2:
@@ -191,19 +241,17 @@ def _week_dates(text: str) -> tuple[date, date] | None:
                 return None
         # fall through to the single-month form rather than giving up
 
-    one = re.search(r"(\d{1,2})\w{0,2}\s*[-–—]\s*(\d{1,2})\w{0,2}\s+([A-Za-z]+)\.?\s+(\d{4})",
-                    line)
+    one = re.search(r"(\d{1,2})\w{0,2}\s*[-–—]\s*(\d{1,2})\w{0,2}\s+([A-Za-z]+)\.?\s+(\d{4})", line)
     if not one:
         return None
-    d1, d2, mi, y = (int(one.group(1)), int(one.group(2)),
-                     _month(one.group(3)), int(one.group(4)))
+    d1, d2, mi, y = (int(one.group(1)), int(one.group(2)), _month(one.group(3)), int(one.group(4)))
     if not mi:
         return None
     try:
         end = date(y, mi, d2)
     except ValueError:
         return None
-    if d1 > d2:                       # week spans a month boundary
+    if d1 > d2:  # week spans a month boundary
         pm, py = (mi - 1, y) if mi > 1 else (12, y - 1)
         try:
             start = date(py, pm, d1)
@@ -224,8 +272,10 @@ def parse(pdf_path: Path) -> pd.DataFrame:
             if "Distribution of Notified Diseases" not in text:
                 continue
             wk = _week_dates(text)
-            rows = [{"district": name, "cases": nums[0], "cumulative": nums[1]}
-                    for name, nums in district_rows(page)]
+            rows = [
+                {"district": name, "cases": nums[0], "cumulative": nums[1]}
+                for name, nums in district_rows(page)
+            ]
             if len(rows) >= 20 and wk:
                 df = pd.DataFrame(rows).drop_duplicates("district", keep="first")
                 df["week_start"] = pd.Timestamp(wk[0])
@@ -235,8 +285,7 @@ def parse(pdf_path: Path) -> pd.DataFrame:
     return pd.DataFrame()
 
 
-def validate_against(parsed: pd.DataFrame, known: pd.DataFrame,
-                     tol: float = 0.02) -> dict:
+def validate_against(parsed: pd.DataFrame, known: pd.DataFrame, tol: float = 0.02) -> dict:
     """Compare parsed weeks against the denguedatahub weeks that overlap.
 
     Surveillance figures get revised, so exact equality is not required - but a
@@ -246,16 +295,22 @@ def validate_against(parsed: pd.DataFrame, known: pd.DataFrame,
     k = known.copy()
     k["week_start"] = pd.to_datetime(k["start.date"], format="mixed", errors="coerce")
     k["district"] = k["district"].map(lambda d: ALIASES.get(str(d).lower(), d))
-    m = parsed.merge(k[["district", "week_start", "cases"]],
-                     on=["district", "week_start"], suffixes=("_pdf", "_hub"))
+    m = parsed.merge(
+        k[["district", "week_start", "cases"]],
+        on=["district", "week_start"],
+        suffixes=("_pdf", "_hub"),
+    )
     if m.empty:
         return {"overlapping_rows": 0, "verdict": "NO OVERLAP"}
     m["abs_diff"] = (m.cases_pdf - m.cases_hub).abs()
     m["rel_diff"] = m.abs_diff / m.cases_hub.clip(lower=1)
-    return {"overlapping_rows": int(len(m)),
-            "exact_match_rate": float((m.abs_diff == 0).mean()),
-            "within_tolerance_rate": float((m.rel_diff <= tol).mean()),
-            "max_abs_diff": int(m.abs_diff.max()),
-            "verdict": "PASS" if float((m.rel_diff <= tol).mean()) >= 0.95 else "FAIL",
-            "worst": m.nlargest(5, "abs_diff")[
-                ["district", "week_start", "cases_pdf", "cases_hub"]].to_dict("records")}
+    return {
+        "overlapping_rows": len(m),
+        "exact_match_rate": float((m.abs_diff == 0).mean()),
+        "within_tolerance_rate": float((m.rel_diff <= tol).mean()),
+        "max_abs_diff": int(m.abs_diff.max()),
+        "verdict": "PASS" if float((m.rel_diff <= tol).mean()) >= 0.95 else "FAIL",
+        "worst": m.nlargest(5, "abs_diff")[
+            ["district", "week_start", "cases_pdf", "cases_hub"]
+        ].to_dict("records"),
+    }

@@ -16,6 +16,7 @@ Safe to run repeatedly - it is incremental and idempotent.
     python refresh_data.py            # refresh data + forecasts
     python refresh_data.py --check    # report freshness, change nothing
 """
+
 from __future__ import annotations
 
 import argparse
@@ -23,7 +24,7 @@ import io
 import json
 import sys
 import warnings
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 sys.path.insert(0, "src")
@@ -38,12 +39,14 @@ ROOT = Path(__file__).parent
 RAW = ROOT / "data" / "raw"
 REPORTS = ROOT / "reports"
 SURVEILLANCE = RAW / "srilanka_weekly_district.csv"
-HUB_URL = ("https://raw.githubusercontent.com/thiyangt/denguedatahub/main/"
-           "data-raw/srilanka_weekly_data.csv")
+HUB_URL = (
+    "https://raw.githubusercontent.com/thiyangt/denguedatahub/main/"
+    "data-raw/srilanka_weekly_data.csv"
+)
 FRESHNESS = REPORTS / "data_freshness.json"
 
-MIN_AGREEMENT = 0.95      # WER is rejected below this match rate against the hub
-MAX_NEW_REPORTS = 20      # cap PDFs fetched per run
+MIN_AGREEMENT = 0.95  # WER is rejected below this match rate against the hub
+MAX_NEW_REPORTS = 20  # cap PDFs fetched per run
 
 
 def log(msg: str) -> None:
@@ -80,26 +83,31 @@ def harvest_wer(after: pd.Timestamp, hub: pd.DataFrame) -> tuple[pd.DataFrame, d
             continue
         frames.append(df)
         fetched += 1
-        log(f"    Vol {rep['vol']} No {rep['no']:>2} -> week "
-            f"{df.week_start.iloc[0].date()} ({len(df)} districts)")
+        log(
+            f"    Vol {rep['vol']} No {rep['no']:>2} -> week "
+            f"{df.week_start.iloc[0].date()} ({len(df)} districts)"
+        )
 
     if not frames:
         return pd.DataFrame(), {"verdict": "NOTHING PARSED"}
 
-    parsed = pd.concat(frames, ignore_index=True).drop_duplicates(
-        ["district", "week_start"])
+    parsed = pd.concat(frames, ignore_index=True).drop_duplicates(["district", "week_start"])
     check = W.validate_against(parsed, hub)
-    log(f"  validation vs denguedatahub: {check['overlapping_rows']} overlapping rows, "
-        f"exact match {check.get('exact_match_rate', 0):.1%} -> {check['verdict']}")
+    log(
+        f"  validation vs denguedatahub: {check['overlapping_rows']} overlapping rows, "
+        f"exact match {check.get('exact_match_rate', 0):.1%} -> {check['verdict']}"
+    )
 
     if check.get("within_tolerance_rate", 0) < MIN_AGREEMENT:
         log("  WER parse REJECTED - falling back to denguedatahub alone")
         return pd.DataFrame(), check
 
     new = parsed[parsed.week_start > after]
-    log(f"  {len(new)} district-weeks newer than denguedatahub "
+    log(
+        f"  {len(new)} district-weeks newer than denguedatahub "
         f"({new.week_start.min().date() if len(new) else '-'} -> "
-        f"{new.week_start.max().date() if len(new) else '-'})")
+        f"{new.week_start.max().date() if len(new) else '-'})"
+    )
     return new, check
 
 
@@ -107,22 +115,25 @@ def merge(hub: pd.DataFrame, new: pd.DataFrame) -> pd.DataFrame:
     """denguedatahub, extended with WER weeks it does not yet cover."""
     if new.empty:
         return hub
-    add = pd.DataFrame({
-        "year": new.week_start.dt.isocalendar().year.astype(int),
-        "week": new.week_start.dt.isocalendar().week.astype(int),
-        "start.date": new.week_start.dt.strftime("%m/%d/%Y"),
-        "end.date": new.week_end.dt.strftime("%m/%d/%Y"),
-        "district": new.district,
-        "cases": new.cases.astype(int),
-    })
+    add = pd.DataFrame(
+        {
+            "year": new.week_start.dt.isocalendar().year.astype(int),
+            "week": new.week_start.dt.isocalendar().week.astype(int),
+            "start.date": new.week_start.dt.strftime("%m/%d/%Y"),
+            "end.date": new.week_end.dt.strftime("%m/%d/%Y"),
+            "district": new.district,
+            "cases": new.cases.astype(int),
+        }
+    )
     keep = ["year", "week", "start.date", "end.date", "district", "cases"]
     out = pd.concat([hub[keep], add], ignore_index=True)
     out["_ws"] = pd.to_datetime(out["start.date"], format="mixed", errors="coerce")
-    out = (out.dropna(subset=["_ws"])
-              .sort_values(["district", "_ws"])
-              .drop_duplicates(["district", "_ws"], keep="first")
-              .drop(columns="_ws"))
-    return out
+    return (
+        out.dropna(subset=["_ws"])
+        .sort_values(["district", "_ws"])
+        .drop_duplicates(["district", "_ws"], keep="first")
+        .drop(columns="_ws")
+    )
 
 
 def extend_weather(until: pd.Timestamp) -> pd.Timestamp:
@@ -152,9 +163,11 @@ def extend_weather(until: pd.Timestamp) -> pd.Timestamp:
         return current
     fresh = pd.concat(frames, ignore_index=True)
     fresh["time"] = pd.to_datetime(fresh["time"])
-    out = (pd.concat([have, fresh], ignore_index=True)
-             .drop_duplicates(["district", "time"], keep="last")
-             .sort_values(["district", "time"]))
+    out = (
+        pd.concat([have, fresh], ignore_index=True)
+        .drop_duplicates(["district", "time"], keep="last")
+        .sort_values(["district", "time"])
+    )
     out.to_parquet(WEATHER_CACHE, index=False)
     return out.time.max()
 
@@ -164,13 +177,17 @@ def rebuild_forecasts() -> dict:
     import runpy
 
     log("\n[4/4] regenerating forecasts")
-    for script in ["finalize_srilanka.py",
-                   "experiments/emergence_v1/finalize_emergence_srilanka.py"]:
+    for script in [
+        "finalize_srilanka.py",
+        "experiments/emergence_v1/finalize_emergence_srilanka.py",
+    ]:
         log(f"  running {script}")
         runpy.run_path(str(ROOT / script), run_name="__main__")
     dual = pd.read_csv(REPORTS / "srilanka_dual_risk.csv")
-    return {"forecast_week": str(pd.to_datetime(dual.week_start).max().date()),
-            "districts": int(len(dual))}
+    return {
+        "forecast_week": str(pd.to_datetime(dual.week_start).max().date()),
+        "districts": len(dual),
+    }
 
 
 def write_freshness(**kw) -> None:
@@ -179,7 +196,7 @@ def write_freshness(**kw) -> None:
 
 
 def main(check_only: bool) -> int:
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     log(f"DengueShield data refresh - {now:%Y-%m-%d %H:%M} UTC\n")
 
     log("[1/4] denguedatahub")
@@ -202,14 +219,22 @@ def main(check_only: bool) -> int:
     log(f"\n  latest available surveillance week: {latest.date()} ({age_days} days old)")
 
     if check_only:
-        write_freshness(checked_at=now, latest_week=latest, age_days=age_days,
-                        hub_latest=hub_last, wer_validation=check.get("verdict"),
-                        local_latest=local_last, action="check-only")
+        write_freshness(
+            checked_at=now,
+            latest_week=latest,
+            age_days=age_days,
+            hub_latest=hub_last,
+            wer_validation=check.get("verdict"),
+            local_latest=local_last,
+            action="check-only",
+        )
         if local_last is not None and latest <= local_last:
             log("\nAlready current - nothing to do.")
         else:
-            log(f"\nNewer data available (local {local_last.date() if local_last is not None else '-'}"
-                f" -> {latest.date()}). Run without --check to apply.")
+            log(
+                f"\nNewer data available (local {local_last.date() if local_last is not None else '-'}"
+                f" -> {latest.date()}). Run without --check to apply."
+            )
         return 0
 
     log("\n[3/4] merging and topping up weather")
@@ -221,18 +246,27 @@ def main(check_only: bool) -> int:
     log(f"  weather covers through {pd.Timestamp(weather_to).date()}")
 
     info = rebuild_forecasts()
-    write_freshness(refreshed_at=now, latest_week=latest, age_days=age_days,
-                    hub_latest=hub_last, wer_weeks_added=int(len(new)),
-                    wer_validation=check.get("verdict"),
-                    wer_exact_match_rate=check.get("exact_match_rate"),
-                    weather_through=pd.Timestamp(weather_to), **info)
-    log(f"\nDone. Forecast week {info['forecast_week']}, "
-        f"{info['districts']} districts. Freshness -> {FRESHNESS.relative_to(ROOT)}")
+    write_freshness(
+        refreshed_at=now,
+        latest_week=latest,
+        age_days=age_days,
+        hub_latest=hub_last,
+        wer_weeks_added=len(new),
+        wer_validation=check.get("verdict"),
+        wer_exact_match_rate=check.get("exact_match_rate"),
+        weather_through=pd.Timestamp(weather_to),
+        **info,
+    )
+    log(
+        f"\nDone. Forecast week {info['forecast_week']}, "
+        f"{info['districts']} districts. Freshness -> {FRESHNESS.relative_to(ROOT)}"
+    )
     return 0
 
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--check", action="store_true",
-                    help="report freshness without changing anything")
+    ap.add_argument(
+        "--check", action="store_true", help="report freshness without changing anything"
+    )
     raise SystemExit(main(ap.parse_args().check))

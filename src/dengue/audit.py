@@ -4,13 +4,15 @@ Public dengue "ML datasets" are frequently simulated or rule-generated. Training
 them yields 95-100% scores that do not transfer to patients. Every dataset used in
 this project must pass this audit before it is allowed near a model.
 """
+
 from __future__ import annotations
+
 import numpy as np
 import pandas as pd
 from sklearn.metrics import roc_auc_score
 
-SINGLE_FEATURE_AUC_ALARM = 0.95   # one feature ~ the label => leakage or simulation
-DISJOINT_ALARM = True             # class-conditional ranges must overlap
+SINGLE_FEATURE_AUC_ALARM = 0.95  # one feature ~ the label => leakage or simulation
+DISJOINT_ALARM = True  # class-conditional ranges must overlap
 
 
 def _numeric(df: pd.DataFrame) -> pd.DataFrame:
@@ -44,23 +46,42 @@ def range_overlap(X: pd.DataFrame, y: np.ndarray) -> pd.DataFrame:
         if len(a) < 5 or len(b) < 5:
             continue
         overlap = not (a.max() < b.min() or b.max() < a.min())
-        rows.append({"feature": c, "pos_min": a.min(), "pos_max": a.max(),
-                     "neg_min": b.min(), "neg_max": b.max(), "overlaps": overlap})
+        rows.append(
+            {
+                "feature": c,
+                "pos_min": a.min(),
+                "pos_max": a.max(),
+                "neg_min": b.min(),
+                "neg_max": b.max(),
+                "overlaps": overlap,
+            }
+        )
     return pd.DataFrame(rows)
 
 
 def permutation_null(model, X: pd.DataFrame, y: np.ndarray, n: int = 10, folds: int = 5):
     """Compare true CV AUC against label-shuffled nulls. z>3 => signal is real."""
-    from sklearn.model_selection import cross_val_predict, StratifiedKFold
+    from sklearn.model_selection import StratifiedKFold, cross_val_predict
+
     Xn = _numeric(X)
-    p = cross_val_predict(model, Xn, y, method="predict_proba",
-                          cv=StratifiedKFold(folds, shuffle=True, random_state=42))[:, 1]
+    p = cross_val_predict(
+        model,
+        Xn,
+        y,
+        method="predict_proba",
+        cv=StratifiedKFold(folds, shuffle=True, random_state=42),
+    )[:, 1]
     real = roc_auc_score(y, p)
     rng, nulls = np.random.default_rng(0), []
     for i in range(n):
         ys = rng.permutation(y)
-        ps = cross_val_predict(model, Xn, ys, method="predict_proba",
-                               cv=StratifiedKFold(folds, shuffle=True, random_state=i))[:, 1]
+        ps = cross_val_predict(
+            model,
+            Xn,
+            ys,
+            method="predict_proba",
+            cv=StratifiedKFold(folds, shuffle=True, random_state=i),
+        )[:, 1]
         nulls.append(roc_auc_score(ys, ps))
     nulls = np.array(nulls)
     z = (real - nulls.mean()) / max(nulls.std(), 1e-9)
@@ -74,7 +95,13 @@ def audit(name: str, X: pd.DataFrame, y: np.ndarray) -> dict:
     disjoint = ov.loc[~ov["overlaps"], "feature"].tolist() if len(ov) else []
     leaky = aucs[aucs >= SINGLE_FEATURE_AUC_ALARM].index.tolist()
     verdict = "REJECT" if (leaky or disjoint) else "PASS"
-    return {"dataset": name, "n": int(len(y)), "prevalence": float(np.mean(y)),
-            "max_single_feature_auc": float(aucs.iloc[0]) if len(aucs) else float("nan"),
-            "leaky_features": leaky, "disjoint_features": disjoint,
-            "verdict": verdict, "single_feature_auc": aucs}
+    return {
+        "dataset": name,
+        "n": len(y),
+        "prevalence": float(np.mean(y)),
+        "max_single_feature_auc": float(aucs.iloc[0]) if len(aucs) else float("nan"),
+        "leaky_features": leaky,
+        "disjoint_features": disjoint,
+        "verdict": verdict,
+        "single_feature_auc": aucs,
+    }

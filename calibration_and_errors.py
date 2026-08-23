@@ -11,26 +11,48 @@ region, and historical outbreak magnitude.
 Both are read-only analyses of the already-frozen modelling protocol. Nothing is
 tuned on the test set; the isotonic calibrator is fitted on validation only.
 """
-import sys, json, warnings
+
+import json
+import sys
+import warnings
+
 sys.path.insert(0, "src")
 warnings.filterwarnings("ignore")
 
-import numpy as np
-import pandas as pd
 import lightgbm as lgb
 import matplotlib
+import numpy as np
+import pandas as pd
+
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from sklearn.isotonic import IsotonicRegression
-from sklearn.metrics import (brier_score_loss, average_precision_score, roc_auc_score,
-                             f1_score, recall_score, precision_score)
+from sklearn.metrics import (
+    average_precision_score,
+    brier_score_loss,
+    f1_score,
+    precision_score,
+    recall_score,
+    roc_auc_score,
+)
 
-from dengue.model2_outbreak import load_panel, build_supervised, feature_columns
+from dengue.model2_outbreak import build_supervised, feature_columns, load_panel
 
-HORIZON = 2                 # the flagship 14-day early-warning configuration
+HORIZON = 2  # the flagship 14-day early-warning configuration
 OUTBREAK_INC = 100.0
 SEED = 42
-PARAMS = {"objective": "binary", "learning_rate": 0.03, "num_leaves": 127, "min_child_samples": 40, "subsample": 0.85, "subsample_freq": 1, "colsample_bytree": 0.8, "reg_lambda": 5.0, "verbose": -1, "seed": SEED}
+PARAMS = {
+    "objective": "binary",
+    "learning_rate": 0.03,
+    "num_leaves": 127,
+    "min_child_samples": 40,
+    "subsample": 0.85,
+    "subsample_freq": 1,
+    "colsample_bytree": 0.8,
+    "reg_lambda": 5.0,
+    "verbose": -1,
+    "seed": SEED,
+}
 
 
 def ece(y, p, n_bins=15):
@@ -56,8 +78,14 @@ def reliability(y, p, n_bins=12):
         m = idx == b
         if m.sum() < 20:
             continue
-        rows.append({"bin": b, "n": int(m.sum()), "predicted": float(p[m].mean()),
-                     "observed": float(y[m].mean())})
+        rows.append(
+            {
+                "bin": b,
+                "n": int(m.sum()),
+                "predicted": float(p[m].mean()),
+                "observed": float(y[m].mean()),
+            }
+        )
     return pd.DataFrame(rows)
 
 
@@ -70,30 +98,40 @@ te = sup[sup.anio > 2023].copy()
 print(f"  train={len(tr)} val={len(va)} test={len(te)}  test prevalence={te.y.mean():.4f}")
 
 spw = (tr.y.values == 0).sum() / max((tr.y.values == 1).sum(), 1)
-model = lgb.train({**PARAMS, "scale_pos_weight": spw},
-                  lgb.Dataset(tr[feats], label=tr.y.values), num_boost_round=700)
+model = lgb.train(
+    {**PARAMS, "scale_pos_weight": spw},
+    lgb.Dataset(tr[feats], label=tr.y.values),
+    num_boost_round=700,
+)
 p_va = model.predict(va[feats])
 p_te = model.predict(te[feats])
 
 # ================================================================== CALIBRATION
-print(f"\n{'='*76}\nCALIBRATION\n{'='*76}")
-raw = {"brier": brier_score_loss(te.y.values, p_te), "ece": ece(te.y.values, p_te),
-       "pr_auc": average_precision_score(te.y.values, p_te),
-       "roc_auc": roc_auc_score(te.y.values, p_te)}
-print(f"  RAW model      Brier={raw['brier']:.4f}  ECE={raw['ece']:.4f}  "
-      f"PR-AUC={raw['pr_auc']:.4f}")
+print(f"\n{'=' * 76}\nCALIBRATION\n{'=' * 76}")
+raw = {
+    "brier": brier_score_loss(te.y.values, p_te),
+    "ece": ece(te.y.values, p_te),
+    "pr_auc": average_precision_score(te.y.values, p_te),
+    "roc_auc": roc_auc_score(te.y.values, p_te),
+}
+print(
+    f"  RAW model      Brier={raw['brier']:.4f}  ECE={raw['ece']:.4f}  PR-AUC={raw['pr_auc']:.4f}"
+)
 
 # isotonic calibrator fitted on VALIDATION ONLY, then applied to test
 iso = IsotonicRegression(out_of_bounds="clip").fit(p_va, va.y.values)
 p_te_cal = iso.predict(p_te)
-cal = {"brier": brier_score_loss(te.y.values, p_te_cal), "ece": ece(te.y.values, p_te_cal),
-       "pr_auc": average_precision_score(te.y.values, p_te_cal),
-       "roc_auc": roc_auc_score(te.y.values, p_te_cal)}
-print(f"  CALIBRATED     Brier={cal['brier']:.4f}  ECE={cal['ece']:.4f}  "
-      f"PR-AUC={cal['pr_auc']:.4f}")
+cal = {
+    "brier": brier_score_loss(te.y.values, p_te_cal),
+    "ece": ece(te.y.values, p_te_cal),
+    "pr_auc": average_precision_score(te.y.values, p_te_cal),
+    "roc_auc": roc_auc_score(te.y.values, p_te_cal),
+}
+print(
+    f"  CALIBRATED     Brier={cal['brier']:.4f}  ECE={cal['ece']:.4f}  PR-AUC={cal['pr_auc']:.4f}"
+)
 better = "calibrated" if cal["ece"] < raw["ece"] else "raw"
-print(f"  -> deploy the {better.upper()} probabilities "
-      f"(ECE {min(raw['ece'], cal['ece']):.4f})")
+print(f"  -> deploy the {better.upper()} probabilities (ECE {min(raw['ece'], cal['ece']):.4f})")
 
 rel_raw, rel_cal = reliability(te.y.values, p_te), reliability(te.y.values, p_te_cal)
 rel_raw.to_csv("reports/model2_reliability_raw.csv", index=False)
@@ -108,54 +146,74 @@ ax.plot(rel_raw.predicted, rel_raw.observed, "o-", label=f"raw (ECE {raw['ece']:
 ax.plot(rel_cal.predicted, rel_cal.observed, "s-", label=f"isotonic (ECE {cal['ece']:.3f})")
 ax.set_xlabel("Predicted outbreak probability")
 ax.set_ylabel("Observed outbreak frequency")
-ax.set_title(f"Reliability diagram - {HORIZON*7}-day outbreak forecast (test 2024-25)")
-ax.legend(); ax.grid(alpha=.3)
-plt.tight_layout(); plt.savefig("reports/model2_reliability.png", dpi=140); plt.close()
+ax.set_title(f"Reliability diagram - {HORIZON * 7}-day outbreak forecast (test 2024-25)")
+ax.legend()
+ax.grid(alpha=0.3)
+plt.tight_layout()
+plt.savefig("reports/model2_reliability.png", dpi=140)
+plt.close()
 
 # ================================================================ ERROR ANALYSIS
-print(f"\n{'='*76}\nERROR ANALYSIS\n{'='*76}")
+print(f"\n{'=' * 76}\nERROR ANALYSIS\n{'=' * 76}")
 p_use = p_te_cal if better == "calibrated" else p_te
 qs = np.unique(np.quantile(p_va, np.linspace(0.5, 0.999, 200)))
 p_va_use = iso.predict(p_va) if better == "calibrated" else p_va
-thr = float(max((f1_score(va.y.values, (p_va_use >= t).astype(int), zero_division=0), t)
-                for t in qs)[1])
+thr = float(
+    max((f1_score(va.y.values, (p_va_use >= t).astype(int), zero_division=0), t) for t in qs)[1]
+)
 te["p"] = p_use
 te["pred"] = (te.p >= thr).astype(int)
 te["outcome"] = np.select(
-    [(te.y == 1) & (te.pred == 1), (te.y == 0) & (te.pred == 1),
-     (te.y == 1) & (te.pred == 0)], ["TP", "FP", "FN"], default="TN")
+    [(te.y == 1) & (te.pred == 1), (te.y == 0) & (te.pred == 1), (te.y == 1) & (te.pred == 0)],
+    ["TP", "FP", "FN"],
+    default="TN",
+)
 counts = te.outcome.value_counts()
-print(f"  threshold={thr:.4f}   TP={counts.get('TP',0)}  FP={counts.get('FP',0)}  "
-      f"FN={counts.get('FN',0)}  TN={counts.get('TN',0)}")
+print(
+    f"  threshold={thr:.4f}   TP={counts.get('TP', 0)}  FP={counts.get('FP', 0)}  "
+    f"FN={counts.get('FN', 0)}  TN={counts.get('TN', 0)}"
+)
 print(f"  recall={recall_score(te.y, te.pred):.4f}  precision={precision_score(te.y, te.pred):.4f}")
 
 te["month"] = pd.to_datetime(te.data_iniSE).dt.month
-te["season"] = pd.cut(te.month, [0, 3, 6, 9, 12],
-                      labels=["Jan-Mar", "Apr-Jun", "Jul-Sep", "Oct-Dec"])
-te["baseline_inc_q"] = pd.qcut(te.p_inc100k.rank(method="first"), 4,
-                               labels=["Q1 lowest", "Q2", "Q3", "Q4 highest"])
-te["pop_density_q"] = pd.qcut(te.population_density.rank(method="first"), 4,
-                              labels=["Q1 rural", "Q2", "Q3", "Q4 urban"])
-te["rainfall_q"] = pd.qcut(te.precip_roll4_sum.rank(method="first"), 4,
-                           labels=["Q1 driest", "Q2", "Q3", "Q4 wettest"])
+te["season"] = pd.cut(
+    te.month, [0, 3, 6, 9, 12], labels=["Jan-Mar", "Apr-Jun", "Jul-Sep", "Oct-Dec"]
+)
+te["baseline_inc_q"] = pd.qcut(
+    te.p_inc100k.rank(method="first"), 4, labels=["Q1 lowest", "Q2", "Q3", "Q4 highest"]
+)
+te["pop_density_q"] = pd.qcut(
+    te.population_density.rank(method="first"), 4, labels=["Q1 rural", "Q2", "Q3", "Q4 urban"]
+)
+te["rainfall_q"] = pd.qcut(
+    te.precip_roll4_sum.rank(method="first"), 4, labels=["Q1 driest", "Q2", "Q3", "Q4 wettest"]
+)
 # how big is this outbreak relative to the municipality's own history?
 hist_max = tr.groupby("codigo_ibge").p_inc100k.max().rename("hist_max_inc")
 te = te.merge(hist_max, on="codigo_ibge", how="left")
 te["vs_history"] = np.where(
     te.y_inc_future > te.hist_max_inc.fillna(np.inf),
-    "unprecedented (> historical max)", "within historical range")
+    "unprecedented (> historical max)",
+    "within historical range",
+)
 
 
 def strat(col):
     g = te.groupby(col, observed=True)
-    out = g.apply(lambda d: pd.Series({
-        "n": len(d), "n_outbreaks": int(d.y.sum()),
-        "recall": recall_score(d.y, d.pred, zero_division=0) if d.y.sum() else np.nan,
-        "precision": precision_score(d.y, d.pred, zero_division=0) if d.pred.sum() else np.nan,
-        "FN": int(((d.y == 1) & (d.pred == 0)).sum()),
-        "FP": int(((d.y == 0) & (d.pred == 1)).sum()),
-    })).reset_index()
-    return out
+    return g.apply(
+        lambda d: pd.Series(
+            {
+                "n": len(d),
+                "n_outbreaks": int(d.y.sum()),
+                "recall": recall_score(d.y, d.pred, zero_division=0) if d.y.sum() else np.nan,
+                "precision": precision_score(d.y, d.pred, zero_division=0)
+                if d.pred.sum()
+                else np.nan,
+                "FN": int(((d.y == 1) & (d.pred == 0)).sum()),
+                "FP": int(((d.y == 0) & (d.pred == 1)).sum()),
+            }
+        )
+    ).reset_index()
 
 
 strata = {}
@@ -181,24 +239,45 @@ tn_recent = float((tn.p_inc100k >= OUTBREAK_INC).mean())
 print("\n  MOMENTUM CHECK - share of rows already at epidemic level when predicted:")
 print(f"    false positives : {fp_recent:.3f}")
 print(f"    true negatives  : {tn_recent:.3f}")
-print(f"    -> false alarms are {fp_recent/max(tn_recent,1e-9):.0f}x more likely to be "
-      f"municipalities whose outbreak is currently active and about to subside")
+print(
+    f"    -> false alarms are {fp_recent / max(tn_recent, 1e-9):.0f}x more likely to be "
+    f"municipalities whose outbreak is currently active and about to subside"
+)
 
 # worst individual misses
-worst_fn = (te[te.outcome == "FN"].nlargest(15, "y_inc_future")
-            [["municipio", "estado", "data_iniSE", "p_inc100k", "y_inc_future", "p"]])
+worst_fn = te[te.outcome == "FN"].nlargest(15, "y_inc_future")[
+    ["municipio", "estado", "data_iniSE", "p_inc100k", "y_inc_future", "p"]
+]
 worst_fn.to_csv("reports/model2_worst_false_negatives.csv", index=False)
 print("\n  -- 10 largest missed outbreaks --")
 print("   " + worst_fn.head(10).round(2).to_string(index=False).replace("\n", "\n   "))
 
-te[["codigo_ibge", "municipio", "estado", "data_iniSE", "y", "pred", "p",
-    "p_inc100k", "y_inc_future", "outcome", "vs_history"]].to_parquet(
-    "data/processed/model2_test_predictions.parquet", index=False)
+te[
+    [
+        "codigo_ibge",
+        "municipio",
+        "estado",
+        "data_iniSE",
+        "y",
+        "pred",
+        "p",
+        "p_inc100k",
+        "y_inc_future",
+        "outcome",
+        "vs_history",
+    ]
+].to_parquet("data/processed/model2_test_predictions.parquet", index=False)
 
-_payload = {"horizon_weeks": HORIZON, "threshold": thr, "raw": raw, "calibrated": cal,
-           "deploy": better, "confusion": {k: int(v) for k, v in counts.items()},
-           "momentum": {"fp_at_epidemic_level": fp_recent, "tn_at_epidemic_level": tn_recent},
-           "strata": strata}
+_payload = {
+    "horizon_weeks": HORIZON,
+    "threshold": thr,
+    "raw": raw,
+    "calibrated": cal,
+    "deploy": better,
+    "confusion": {k: int(v) for k, v in counts.items()},
+    "momentum": {"fp_at_epidemic_level": fp_recent, "tn_at_epidemic_level": tn_recent},
+    "strata": strata,
+}
 with open("reports/model2_calibration_errors.json", "w") as _f:
     json.dump(_payload, _f, indent=2, default=float)
 print("\nsaved reports/model2_calibration_errors.json, model2_reliability.png")

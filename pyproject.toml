@@ -1,0 +1,53 @@
+# Project configuration. The interpreter is .venv (Python 3.11) - 3.14 has no wheels
+# for torch or xgboost. Editors that pick the system interpreter will report every
+# third-party import as missing; pyrightconfig.json and .vscode/settings.json point
+# them at the venv instead.
+
+[project]
+name = "dengueshield"
+version = "2.0.0"
+description = "Dengue screening and outbreak early warning"
+requires-python = ">=3.11"
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+extend-exclude = [".venv", "frozen", "graphify-out", "data", "reports", "models"]
+src = ["src", "."]
+
+[tool.ruff.lint]
+select = [
+    "E", "W",    # pycodestyle
+    "F",         # pyflakes - undefined names, unused imports
+    "I",         # import sorting
+    "B",         # bugbear - real bug patterns
+    "C4",        # comprehensions
+    "UP",        # pyupgrade
+    "SIM",       # simplify
+    "RET",       # return consistency
+    "PERF",      # performance
+    "RUF",       # ruff-specific
+    "NPY",       # numpy correctness
+    "PD",        # pandas correctness
+]
+ignore = [
+    "E501",     # long lines: the prose in docstrings is wrapped for reading, not 79 cols
+    "PD011",    # .values is correct and idiomatic on a DataFrame here
+
+    "RUF001", "RUF002", "RUF003",  # en dashes and arrows are deliberate in the prose
+    "PERF203",  # try/except inside a loop is intentional: one bad report must not
+                # abort a whole harvest
+    "B905",     # zip strict= is decided case by case
+    "NPY002",   # np.random.seed is deliberate: it seeds the GLOBAL numpy RNG, which
+                # torch and scikit-learn also draw from. A np.random.Generator would
+                # not, so "fixing" this would quietly break reproducibility of the
+                # documented results.
+]
+
+[tool.ruff.lint.per-file-ignores]
+# These scripts must extend sys.path before importing the local package, so their
+# imports genuinely cannot all sit at the top of the file.
+"*.py" = ["E402"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["dengue"]

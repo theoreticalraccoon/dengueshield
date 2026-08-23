@@ -1,0 +1,10 @@
+{
+  "venvPath": ".",
+  "venv": ".venv",
+  "pythonVersion": "3.11",
+  "extraPaths": ["src"],
+  "include": ["src", "app.py", "*.py", "experiments"],
+  "exclude": ["**/__pycache__", ".venv", "frozen", "graphify-out", "data"],
+  "reportMissingImports": "warning",
+  "typeCheckingMode": "basic"
+}

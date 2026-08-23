@@ -7,13 +7,22 @@ Design decisions:
   * Threshold chosen for a target sensitivity, not 0.5. Missing dengue is far more
     costly than a false alarm, and accuracy at 0.5 is the wrong operating point.
 """
+
 from __future__ import annotations
-import numpy as np, torch, torch.nn as nn
+
+import numpy as np
+import torch
+import torch.nn as nn
 from sklearn.base import BaseEstimator, ClassifierMixin
 from sklearn.impute import SimpleImputer
 from sklearn.linear_model import LogisticRegression
-from sklearn.metrics import (accuracy_score, roc_auc_score, average_precision_score,
-                             brier_score_loss, confusion_matrix)
+from sklearn.metrics import (
+    accuracy_score,
+    average_precision_score,
+    brier_score_loss,
+    confusion_matrix,
+    roc_auc_score,
+)
 from sklearn.model_selection import StratifiedKFold
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
@@ -39,15 +48,26 @@ class _MLP(nn.Module):
 class TorchMLP(BaseEstimator, ClassifierMixin):
     """PyTorch MLP with a sklearn interface, so it drops into the same CV harness."""
 
-    def __init__(self, hidden=(128, 64), p_drop=0.3, lr=1e-3, epochs=200,
-                 batch_size=64, weight_decay=1e-4, patience=25, seed=SEED):
+    def __init__(
+        self,
+        hidden=(128, 64),
+        p_drop=0.3,
+        lr=1e-3,
+        epochs=200,
+        batch_size=64,
+        weight_decay=1e-4,
+        patience=25,
+        seed=SEED,
+    ):
         self.hidden, self.p_drop, self.lr = hidden, p_drop, lr
         self.epochs, self.batch_size = epochs, batch_size
         self.weight_decay, self.patience, self.seed = weight_decay, patience, seed
 
     def fit(self, X, y):
-        torch.manual_seed(self.seed); np.random.seed(self.seed)
-        X = np.asarray(X, dtype=np.float32); y = np.asarray(y, dtype=np.float32)
+        torch.manual_seed(self.seed)
+        np.random.seed(self.seed)
+        X = np.asarray(X, dtype=np.float32)
+        y = np.asarray(y, dtype=np.float32)
         self.classes_ = np.unique(y)
         # internal validation split for early stopping
         idx = np.arange(len(y))
@@ -57,7 +77,9 @@ class TorchMLP(BaseEstimator, ClassifierMixin):
         self.model_ = _MLP(X.shape[1], self.hidden, self.p_drop)
         pos_w = torch.tensor([(y[tr] == 0).sum() / max((y[tr] == 1).sum(), 1)], dtype=torch.float32)
         crit = nn.BCEWithLogitsLoss(pos_weight=pos_w)
-        opt = torch.optim.AdamW(self.model_.parameters(), lr=self.lr, weight_decay=self.weight_decay)
+        opt = torch.optim.AdamW(
+            self.model_.parameters(), lr=self.lr, weight_decay=self.weight_decay
+        )
         sched = torch.optim.lr_scheduler.ReduceLROnPlateau(opt, patience=8, factor=0.5)
         best, best_state, bad = np.inf, None, 0
         n = len(yt)
@@ -65,12 +87,13 @@ class TorchMLP(BaseEstimator, ClassifierMixin):
             self.model_.train()
             perm = torch.randperm(n)
             for i in range(0, n, self.batch_size):
-                b = perm[i:i + self.batch_size]
+                b = perm[i : i + self.batch_size]
                 if len(b) < 2:
                     continue
                 opt.zero_grad()
                 loss = crit(self.model_(Xt[b]), yt[b])
-                loss.backward(); opt.step()
+                loss.backward()
+                opt.step()
             self.model_.eval()
             with torch.no_grad():
                 vl = crit(self.model_(Xv), yv).item()
@@ -98,23 +121,54 @@ class TorchMLP(BaseEstimator, ClassifierMixin):
 
 # ------------------------------------------------------------------------ models
 def build_models(scale_pos_weight: float = 1.0) -> dict:
-    from xgboost import XGBClassifier
     from lightgbm import LGBMClassifier
+    from xgboost import XGBClassifier
+
     pre = [("impute", SimpleImputer(strategy="median")), ("scale", StandardScaler())]
     return {
-        "LogisticRegression": Pipeline(pre + [("clf", LogisticRegression(max_iter=2000, C=1.0))]),
-        "XGBoost": Pipeline([("impute", SimpleImputer(strategy="median")),
-                             ("clf", XGBClassifier(n_estimators=600, max_depth=5, learning_rate=0.03,
-                                                   subsample=0.85, colsample_bytree=0.85,
-                                                   min_child_weight=3, reg_lambda=2.0,
-                                                   eval_metric="logloss", n_jobs=4,
-                                                   random_state=SEED, verbosity=0))]),
-        "LightGBM": Pipeline([("impute", SimpleImputer(strategy="median")),
-                              ("clf", LGBMClassifier(n_estimators=600, num_leaves=31, learning_rate=0.03,
-                                                     subsample=0.85, colsample_bytree=0.85,
-                                                     min_child_samples=20, reg_lambda=2.0,
-                                                     random_state=SEED, n_jobs=4, verbose=-1))]),
-        "PyTorch_MLP": Pipeline(pre + [("clf", TorchMLP())]),
+        "LogisticRegression": Pipeline([*pre, ("clf", LogisticRegression(max_iter=2000, C=1.0))]),
+        "XGBoost": Pipeline(
+            [
+                ("impute", SimpleImputer(strategy="median")),
+                (
+                    "clf",
+                    XGBClassifier(
+                        n_estimators=600,
+                        max_depth=5,
+                        learning_rate=0.03,
+                        subsample=0.85,
+                        colsample_bytree=0.85,
+                        min_child_weight=3,
+                        reg_lambda=2.0,
+                        eval_metric="logloss",
+                        n_jobs=4,
+                        random_state=SEED,
+                        verbosity=0,
+                    ),
+                ),
+            ]
+        ),
+        "LightGBM": Pipeline(
+            [
+                ("impute", SimpleImputer(strategy="median")),
+                (
+                    "clf",
+                    LGBMClassifier(
+                        n_estimators=600,
+                        num_leaves=31,
+                        learning_rate=0.03,
+                        subsample=0.85,
+                        colsample_bytree=0.85,
+                        min_child_samples=20,
+                        reg_lambda=2.0,
+                        random_state=SEED,
+                        n_jobs=4,
+                        verbose=-1,
+                    ),
+                ),
+            ]
+        ),
+        "PyTorch_MLP": Pipeline([*pre, ("clf", TorchMLP())]),
     }
 
 
@@ -122,14 +176,23 @@ def build_models(scale_pos_weight: float = 1.0) -> dict:
 def metrics_at(y, p, thr) -> dict:
     yhat = (p >= thr).astype(int)
     tn, fp, fn, tp = confusion_matrix(y, yhat, labels=[0, 1]).ravel()
-    sens = tp / max(tp + fn, 1); spec = tn / max(tn + fp, 1)
-    ppv = tp / max(tp + fp, 1); npv = tn / max(tn + fn, 1)
-    return {"threshold": thr, "accuracy": accuracy_score(y, yhat),
-            "sensitivity": sens, "specificity": spec, "ppv": ppv, "npv": npv,
-            "balanced_accuracy": (sens + spec) / 2,
-            "f1": 2 * ppv * sens / max(ppv + sens, 1e-9),
-            "roc_auc": roc_auc_score(y, p), "pr_auc": average_precision_score(y, p),
-            "brier": brier_score_loss(y, p)}
+    sens = tp / max(tp + fn, 1)
+    spec = tn / max(tn + fp, 1)
+    ppv = tp / max(tp + fp, 1)
+    npv = tn / max(tn + fn, 1)
+    return {
+        "threshold": thr,
+        "accuracy": accuracy_score(y, yhat),
+        "sensitivity": sens,
+        "specificity": spec,
+        "ppv": ppv,
+        "npv": npv,
+        "balanced_accuracy": (sens + spec) / 2,
+        "f1": 2 * ppv * sens / max(ppv + sens, 1e-9),
+        "roc_auc": roc_auc_score(y, p),
+        "pr_auc": average_precision_score(y, p),
+        "brier": brier_score_loss(y, p),
+    }
 
 
 def threshold_for_sensitivity(y, p, target=0.90) -> float:
@@ -140,7 +203,8 @@ def threshold_for_sensitivity(y, p, target=0.90) -> float:
     maximises specificity subject to the sensitivity constraint - the correct
     operating point for a screening tool, where missed cases are the costly error.
     """
-    y = np.asarray(y); p = np.asarray(p)
+    y = np.asarray(y)
+    p = np.asarray(p)
     best = 0.0
     for t in np.unique(p):
         if (p >= t)[y == 1].mean() >= target:

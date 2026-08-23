@@ -1,20 +1,28 @@
 """Loaders for every candidate dengue dataset, returning (X, y, meta)."""
+
 from __future__ import annotations
+
 from pathlib import Path
+
 import pandas as pd
 
 RAW = Path(__file__).resolve().parents[2] / "data" / "raw"
 
 
-def _clin_ratios(X: pd.DataFrame, plt_c: str, wbc_c: str,
-                 neu: str | None = None, lym: str | None = None,
-                 mpv: str | None = None) -> pd.DataFrame:
+def _clin_ratios(
+    X: pd.DataFrame,
+    plt_c: str,
+    wbc_c: str,
+    neu: str | None = None,
+    lym: str | None = None,
+    mpv: str | None = None,
+) -> pd.DataFrame:
     """Clinically motivated haematological ratios used in dengue literature."""
     X = X.copy()
     X["PLT_WBC_ratio"] = X[plt_c] / X[wbc_c].clip(lower=1)
     if neu and lym:
-        X["NLR"] = X[neu] / X[lym].clip(lower=1)          # neutrophil-lymphocyte ratio
-        X["PLR"] = X[plt_c] / X[lym].clip(lower=1)        # platelet-lymphocyte ratio
+        X["NLR"] = X[neu] / X[lym].clip(lower=1)  # neutrophil-lymphocyte ratio
+        X["PLR"] = X[plt_c] / X[lym].clip(lower=1)  # platelet-lymphocyte ratio
     if mpv:
         X["MPV_PLT_ratio"] = X[mpv] / (X[plt_c] / 1000).clip(lower=1e-6)
     return X
@@ -26,15 +34,32 @@ def load_hematology_1523():
     y = (d["Result"].str.lower() == "positive").astype(int).values
     X = d.drop(columns=["Result"])
     X["Gender"] = (X["Gender"].str.lower() == "male").astype(int)
-    X = _clin_ratios(X, "Total Platelet Count(/cumm)", "Total WBC count(/cumm)",
-                     "Neutrophils(%)", "Lymphocytes(%)", "MPV(fl)")
-    return X, y, {"name": "hematology_1523", "source": "Mendeley 6fsrsk3mb8",
-                  "task": "dengue vs other febrile illness (CBC only)"}
+    X = _clin_ratios(
+        X,
+        "Total Platelet Count(/cumm)",
+        "Total WBC count(/cumm)",
+        "Neutrophils(%)",
+        "Lymphocytes(%)",
+        "MPV(fl)",
+    )
+    return (
+        X,
+        y,
+        {
+            "name": "hematology_1523",
+            "source": "Mendeley 6fsrsk3mb8",
+            "task": "dengue vs other febrile illness (CBC only)",
+        },
+    )
 
 
 def load_vitals_1003():
     """Mendeley xrsbyjs24t - vital signs + blood parameters."""
-    d = pd.read_csv(RAW / "mendeley_clinical.csv").dropna(subset=["Final Output"]).reset_index(drop=True)
+    d = (
+        pd.read_csv(RAW / "mendeley_clinical.csv")
+        .dropna(subset=["Final Output"])
+        .reset_index(drop=True)
+    )
     y = d["Final Output"].astype(int).values
     X = d.drop(columns=["Final Output"])
     X["Sex"] = X["Sex"].map({"Male": 0, "Female": 1, "Child": 2}).fillna(-1).astype(int)

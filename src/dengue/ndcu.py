@@ -18,6 +18,7 @@ The report states its own weekly total, which gives a self-check no other source
 offers: `parse` returns that stated total alongside the rows, and `validate` refuses
 the issue when the parsed district figures do not sum to it.
 """
+
 from __future__ import annotations
 
 import re
@@ -37,23 +38,58 @@ UA = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120 Safari
 
 # NDCU spelling -> the spelling the panel uses
 ALIASES = {
-    "colombo": "Colombo", "gampaha": "Gampaha", "kalutara": "Kalutara",
-    "kandy": "Kandy", "matale": "Matale",
-    "nuwara eliya": "NuwaraEliya", "nuwaraeliya": "NuwaraEliya",
-    "galle": "Galle", "hambantota": "Hambanthota", "hambanthota": "Hambanthota",
-    "matara": "Matara", "jaffna": "Jaffna", "kilinochchi": "Kilinochchi",
-    "mannar": "Mannar", "vavuniya": "Vavuniya", "mullaitivu": "Mullaitivu",
-    "batticaloa": "Batticaloa", "ampara": "Ampara", "trincomalee": "Trincomalee",
-    "kalmunai": "Kalmune", "kalmune": "Kalmune",
-    "kurunegala": "Kurunegala", "puttalam": "Puttalam",
-    "anuradhapura": "Anuradhapura", "polonnaruwa": "Polonnaruwa",
-    "badulla": "Badulla", "monaragala": "Monaragala", "moneragala": "Monaragala",
-    "ratnapura": "Ratnapura", "kegalle": "Kegalle",
+    "colombo": "Colombo",
+    "gampaha": "Gampaha",
+    "kalutara": "Kalutara",
+    "kandy": "Kandy",
+    "matale": "Matale",
+    "nuwara eliya": "NuwaraEliya",
+    "nuwaraeliya": "NuwaraEliya",
+    "galle": "Galle",
+    "hambantota": "Hambanthota",
+    "hambanthota": "Hambanthota",
+    "matara": "Matara",
+    "jaffna": "Jaffna",
+    "kilinochchi": "Kilinochchi",
+    "mannar": "Mannar",
+    "vavuniya": "Vavuniya",
+    "mullaitivu": "Mullaitivu",
+    "batticaloa": "Batticaloa",
+    "ampara": "Ampara",
+    "trincomalee": "Trincomalee",
+    "kalmunai": "Kalmune",
+    "kalmune": "Kalmune",
+    "kurunegala": "Kurunegala",
+    "puttalam": "Puttalam",
+    "anuradhapura": "Anuradhapura",
+    "polonnaruwa": "Polonnaruwa",
+    "badulla": "Badulla",
+    "monaragala": "Monaragala",
+    "moneragala": "Monaragala",
+    "ratnapura": "Ratnapura",
+    "kegalle": "Kegalle",
 }
 
-MONTHS = {m.lower(): i for i, m in enumerate(
-    ["January", "February", "March", "April", "May", "June", "July",
-     "August", "September", "October", "November", "December"], 1)}
+MONTHS = {
+    m.lower(): i
+    for i, m in enumerate(
+        [
+            "January",
+            "February",
+            "March",
+            "April",
+            "May",
+            "June",
+            "July",
+            "August",
+            "September",
+            "October",
+            "November",
+            "December",
+        ],
+        1,
+    )
+}
 
 # "Colombo 115 117 742* 623 8974 21987" - Nil stands in for zero, * is a footnote.
 #
@@ -67,7 +103,8 @@ _NUM = r"(?:\d[\d,]*\*?|Nil)"
 ROW = re.compile(
     r"(?<![A-Za-z])(" + "|".join(n.replace(" ", r"\s+") for n in _NAMES) + r")\*?\s+"
     r"(" + _NUM + r"(?:[ \t]+" + _NUM + r"){5})(?![ \t]*[\d,])",
-    re.I)
+    re.I,
+)
 
 
 def list_reports(limit: int = 20) -> list[dict]:
@@ -107,19 +144,24 @@ def _num(tok: str) -> int:
 
 def _week_dates(text: str) -> tuple[date, date] | None:
     """From the cover line, e.g. 'Week 33 (10th - 16th August 2026)'."""
-    m = re.search(r"Week\s+\d{1,2}\s*\(\s*(\d{1,2})\w{0,2}\s*(?:([A-Za-z]{3,})\.?\s*)?"
-                  r"[-–—]\s*(\d{1,2})\w{0,2}\s*([A-Za-z]{3,})\.?\s*(20\d\d)", text)
+    m = re.search(
+        r"Week\s+\d{1,2}\s*\(\s*(\d{1,2})\w{0,2}\s*(?:([A-Za-z]{3,})\.?\s*)?"
+        r"[-–—]\s*(\d{1,2})\w{0,2}\s*([A-Za-z]{3,})\.?\s*(20\d\d)",
+        text,
+    )
     if not m:
         return None
     d1, m1_raw, d2, m2_raw, yr = m.groups()
     m2 = MONTHS.get(m2_raw.lower()) or next(
-        (v for k, v in MONTHS.items() if k.startswith(m2_raw.lower()[:3])), None)
+        (v for k, v in MONTHS.items() if k.startswith(m2_raw.lower()[:3])), None
+    )
     if not m2:
         return None
     yr = int(yr)
     if m1_raw:
         m1 = MONTHS.get(m1_raw.lower()) or next(
-            (v for k, v in MONTHS.items() if k.startswith(m1_raw.lower()[:3])), None)
+            (v for k, v in MONTHS.items() if k.startswith(m1_raw.lower()[:3])), None
+        )
     else:
         m1 = m2
     if not m1:
@@ -157,8 +199,14 @@ def parse(pdf_path: Path) -> pd.DataFrame:
         nums = [_num(t) for t in nums_raw.split()]
         if len(nums) < 6:
             continue
-        rows.append({"district": canon, "cases": nums[3],          # 2026 current week
-                     "prev_week": nums[2], "cumulative": nums[5]})
+        rows.append(
+            {
+                "district": canon,
+                "cases": nums[3],  # 2026 current week
+                "prev_week": nums[2],
+                "cumulative": nums[5],
+            }
+        )
 
     if len(rows) < 20:
         return pd.DataFrame()
@@ -182,12 +230,25 @@ def validate(parsed: pd.DataFrame, tol: float = 0.02) -> dict:
             rows.append({"week": wk, "stated": None, "summed": summed, "ok": None})
             continue
         rel = abs(summed - total) / max(int(total), 1)
-        rows.append({"week": wk, "stated": int(total), "summed": summed,
-                     "districts": len(g), "rel_diff": rel, "ok": bool(rel <= tol)})
+        rows.append(
+            {
+                "week": wk,
+                "stated": int(total),
+                "summed": summed,
+                "districts": len(g),
+                "rel_diff": rel,
+                "ok": bool(rel <= tol),
+            }
+        )
     checked = [r for r in rows if r["ok"] is not None]
     passed = [r for r in checked if r["ok"]]
-    return {"issues": len(rows), "checked": len(checked), "passed": len(passed),
-            "pass_rate": (len(passed) / len(checked)) if checked else None,
-            "verdict": "PASS" if checked and len(passed) == len(checked) else
-                       ("PARTIAL" if passed else "FAIL"),
-            "detail": rows}
+    return {
+        "issues": len(rows),
+        "checked": len(checked),
+        "passed": len(passed),
+        "pass_rate": (len(passed) / len(checked)) if checked else None,
+        "verdict": "PASS"
+        if checked and len(passed) == len(checked)
+        else ("PARTIAL" if passed else "FAIL"),
+        "detail": rows,
+    }

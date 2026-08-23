@@ -1,0 +1,10 @@
+{
+  "python.defaultInterpreterPath": "${workspaceFolder}/.venv/Scripts/python.exe",
+  "python.analysis.extraPaths": ["${workspaceFolder}/src"],
+  "python.analysis.typeCheckingMode": "basic",
+  "python.terminal.activateEnvironment": true,
+  "ruff.interpreter": ["${workspaceFolder}/.venv/Scripts/python.exe"],
+  "ty.environment.pythonVersion": "3.11",
+  "ty.environment.extraPaths": ["${workspaceFolder}/src"],
+  "files.exclude": { "**/__pycache__": true }
+}
