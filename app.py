@@ -30,8 +30,27 @@ st.set_page_config(page_title="DengueShield", page_icon=":material/coronavirus:"
 INK, MUTED, FAINT = "#16211C", "#5C6B63", "#8A978F"
 PAPER, SURFACE, RULE = "#F7F8F5", "#FFFFFF", "#DCE3DA"
 ACCENT = "#0F5F63"
-BAND_COLOR = {"Low": "#2F6B4A", "Moderate": "#997215",
-              "High": "#B4622A", "Very High": "#993528"}
+# Risk semantics, saturated enough to carry a map but chosen against measured
+# contrast rather than by eye: each is the most vivid option in its hue family that
+# still clears WCAG AA against either white or ink, so text printed on a band is
+# always readable. `readable_on` picks which.
+BAND_COLOR = {"Low": "#1A8754", "Moderate": "#C68A0E",
+              "High": "#D2691E", "Very High": "#C42A1C"}
+
+
+def _luminance(hex_colour: str) -> float:
+    h = hex_colour.lstrip("#")
+    ch = [int(h[i:i + 2], 16) / 255 for i in (0, 2, 4)]
+    ch = [v / 12.92 if v <= 0.03928 else ((v + 0.055) / 1.055) ** 2.4 for v in ch]
+    return 0.2126 * ch[0] + 0.7152 * ch[1] + 0.0722 * ch[2]
+
+
+def readable_on(background: str) -> str:
+    """White or ink, whichever has more contrast against this background."""
+    lb = _luminance(background)
+    white = (1.05) / (lb + 0.05)
+    ink = (lb + 0.05) / (_luminance("#16211C") + 0.05)
+    return "#FFFFFF" if white >= ink else "#16211C"
 
 STYLE = f"""
 <style>
@@ -495,7 +514,8 @@ elif screen == "Outbreak forecast":
                 x=[counts[g]], y=[""], orientation="h", name=f"{g} ({counts[g]})",
                 marker_color=TRIAGE[g][0], hovertemplate=f"{g}: {counts[g]} districts<extra></extra>",
                 text=[str(counts[g])], textposition="inside",
-                insidetextfont={"color": "white", "family": "IBM Plex Mono", "size": 13}))
+                insidetextfont={"color": readable_on(TRIAGE[g][0]),
+                                "family": "IBM Plex Mono", "size": 13}))
         bar.update_layout(barmode="stack", height=96, showlegend=True,
                           legend={"orientation": "h", "y": -0.85, "x": 0, "title": ""},
                           margin={"t": 6, "b": 0, "l": 0, "r": 0},
