@@ -5,6 +5,11 @@ levels. Repo: <https://github.com/theoreticalraccoon/dengueshield> (public).
 
 ## Environment
 
+The project folder is `DengueShield`. If a path in an older note says `Dengue_Project`,
+it predates the rename. The venv survives a folder rename - `pyvenv.cfg` only points at
+the base interpreter - but the `.venv/Scripts/*.exe` console shims embed the old
+absolute path, so always invoke tools as `python.exe -m <tool>` rather than the shim.
+
 Python **3.11** in `.venv` — 3.14 has no wheels for torch/xgboost, do not use it.
 
 ```bash

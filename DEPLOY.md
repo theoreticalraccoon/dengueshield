@@ -27,7 +27,7 @@ loads.
 1. **Push to GitHub**
 
    ```bash
-   cd c:/Users/HP/Dengue_Project
+   cd c:/Users/HP/DengueShield
    git init
    git add .
    git commit -m "DengueShield: dengue screening and outbreak early warning"
@@ -105,7 +105,7 @@ Deploy that image to Render, Railway, Fly.io, Cloud Run or any container host.
 ## Run locally right now
 
 ```bash
-cd c:/Users/HP/Dengue_Project
+cd c:/Users/HP/DengueShield
 .venv/Scripts/python.exe -m streamlit run app.py
 ```
 
