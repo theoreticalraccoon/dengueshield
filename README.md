@@ -2,142 +2,203 @@
 
 Dengue screening, complication risk, and 14-day outbreak early warning.
 
-> **Research question.** Can machine learning provide reliable dengue screening from
-> routine haematological data, while forecasting geographically localized dengue
-> outbreaks from epidemiological and environmental data?
+The question this started from: can routine blood work tell you who has dengue, and can
+surveillance and weather data tell you where an outbreak is coming?
 
-> **Conclusion.** Reliable dengue forecasting is achievable at geographic scale under
-> strict temporal validation, whereas routine-CBC dengue screening remains substantially
-> harder on real-world data. Geographic transfer also cannot be assumed, demonstrating
-> the importance of local calibration and validation. Crucially, that forecasting skill
-> is *epidemiological momentum*: the model tracks outbreak trajectory far better than it
-> detects emergence — and environmental data, near-worthless for the former, is
-> materially useful for the latter.
+The short answer is that the second half works and the first half mostly doesn't. Outbreak
+forecasting holds up under strict temporal validation. Screening from a routine CBC stays
+modest on real patients no matter what you throw at it. And the forecasting skill is not
+what it first appears — the model is very good at reading momentum in an outbreak already
+underway, and much weaker at calling a new one.
 
-📄 **Full write-up: [REPORT.md](REPORT.md)** · 🔒 Primary release `frozen/v2_final/`
-(72 artifacts, SHA-256 verified untouched) · 🧪 Extension `experiments/emergence_v1/`
+Full write-up in [REPORT.md](REPORT.md). The primary release is frozen under
+`frozen/v2_final/` (72 artifacts, SHA-256 verified).
 
 ---
 
-## Four distinct tasks — not one "dengue accuracy"
+## Four tasks, not one accuracy figure
 
-| | A · Screening | B · Complication risk | C · Outbreak continuation | D · Outbreak emergence |
+These get quoted separately on purpose. They ask different questions of different
+populations, and averaging them would hide the two that are hard.
+
+| | A · Screening | B · Complication | C · Continuation | D · Emergence |
 |---|---|---|---|---|
-| Question | Likely to have dengue? | Needs closer monitoring? | Will an outbreak persist 14 days? | Is a **new** outbreak starting? |
-| n (test) | 1,511 | 303 | 66,000 | 53,805 |
-| Headline | ROC-AUC **0.681**, acc **76.2%** | Sens **90.5%**, NPV **96.2%** | PR-AUC **0.961**, acc **96.7%** | PR-AUC **0.583**, **14.3× lift** |
-| Baseline | 0.685 majority | — | 0.760 persistence | 0.382 persistence |
-| Verdict | Modest | Strong | Strong | Harder — the honest early-warning task |
+| Question | Does this patient have dengue? | Does this admission need closer monitoring? | Will an existing outbreak persist 14 days? | Is a new outbreak starting? |
+| Asked of | one febrile patient | one dengue admission | any district | quiet districts only |
+| n (test) | 1,511 | 303 | 66,660 | 2,678 (SL) · 53,805 (BR) |
+| Headline | ROC-AUC 0.681 | sens 90.5%, NPV 96.2% | PR-AUC 0.960 | PR-AUC 0.408, recall 74% |
+| Baseline | 0.685 majority class | — | 0.758 persistence | 0.250 persistence |
+| Verdict | modest | strong | strong | the hard one |
 
-The ≥90% target was met where it is scientifically defensible (task C) and shown *not*
-to be defensible for task A. Tasks C and D ask the same question of disjoint
-populations: D excludes every district already in outbreak, which is exactly where C's
-recall lives.
+C and D are the same phenomenon asked of disjoint populations. D excludes every district
+already in outbreak, which is precisely where C's recall comes from. Task D has two
+numbers that should never be merged: 0.583 is a Brazil experiment, 0.408 is the Sri Lanka
+model the app actually deploys.
 
-## Five findings worth reading the report for
+### A note on accuracy for task D
 
-1. **Three of four public dengue screening datasets are synthetic.** In one, body
-   temperature is *completely disjoint* between classes (dengue 38.1–40.6 °C, non-dengue
-   36.0–37.6 °C). Models trained on them score 0.99+ internally and collapse to AUC
-   0.53–0.61 on real patients — worse than guessing.
+Predicting "no new outbreak" every week scores **93.5%** accuracy on the test set and
+catches nothing at all, because only 6.5% of district-weeks see an outbreak begin. The
+deployed model scores 79.2% and catches 74% of them. Judge emergence on recall, not
+accuracy — the higher accuracy number is the useless one.
 
-2. **Environment is weak for continuation but matters for emergence — the central
-   finding.** SHAP attributes ~50% of the continuation model's reasoning to climate and
-   land cover, yet an ablation shows it adds only **+0.006 PR-AUC** there. Ask the same
-   features to predict outbreak *emergence* and they add **+0.089** — a 12–15×
-   difference, consistent across three configurations. Environmental data was not
-   useless; it was being asked the wrong question. (Attribution ≠ incremental value.)
+## What the work turned up
 
-3. **The outbreak model tracks trajectory, not emergence.** Recall is 0.92 where
-   baseline incidence is already high and **near zero** where it is low. False positives
-   are **37× more likely** than true negatives to be municipalities already at epidemic
-   level — momentum carried through subsiding outbreaks.
+**Three of four public dengue screening datasets are synthetic.** In one, body temperature
+is completely disjoint between classes — dengue 38.1–40.6 °C, non-dengue 36.0–37.6 °C, no
+overlap at all. In another, `platelet < 150,000` reproduces the label 98.97% of the time.
+Models trained on them score above 0.99 internally and then fall to 0.53–0.61 on real
+patients. `run_audit.py` now rejects any dataset with a single feature above 0.95 AUC or
+disjoint class ranges.
 
-4. **It generalises spatially but not internationally.** Unseen municipalities score
-   PR-AUC 0.955 vs 0.962 for seen ones — it did not merely memorise place identity. But
-   zero-shot Brazil → Sri Lanka collapses to **0.449, below persistence (0.476)**.
+**Attribution is not the same as value.** SHAP hands roughly half the continuation model's
+reasoning to climate and land cover. Remove those features and the model loses 0.006
+PR-AUC. Environment on its own scores 0.595, worse than plain persistence at 0.758. The
+lesson generalises: always pair an attribution plot with a leave-group-out ablation.
 
-5. **Calibration is earned, not assumed.** Isotonic calibration cuts the Brazil model's
-   ECE from 0.0190 to **0.0052**, so its outputs are honestly *calibrated probabilities*.
-   The Sri Lanka model is not — it predicts ~0.81 where outbreaks occur ~0.54 of the
-   time — so the app labels it *predicted*, not *calibrated*.
+**Environment matters for emergence, not continuation.** Same features, different question:
++0.006 PR-AUC for continuation, +0.089 for emergence. That 15× gap held across three
+configurations and is the most interesting result here. Environmental data was not weak,
+it was being asked the wrong question.
 
-## Validation battery (task C)
+**The model reads momentum.** Recall is 0.92 where incidence is already high and close to
+zero where it is low. Over half of false alarms are municipalities already at epidemic
+level — 37.6× the rate among true negatives. It is tracking outbreaks that are subsiding,
+not spotting ones that are starting.
+
+**Geography transfers, countries don't.** Held-out municipalities the model has never seen
+score 0.954 against 0.961 for seen ones, so it did not simply memorise place identity. But
+Brazil → Sri Lanka zero-shot collapses to 0.449, below Sri Lanka's own persistence
+baseline of 0.476. Training locally recovers it to 0.708.
+
+**Calibration has to be earned.** Isotonic regression takes the Brazil model's expected
+calibration error from 0.019 to 0.005, so those outputs are genuine probabilities. The Sri
+Lanka model never got there, so the app says "predicted", not "calibrated".
+
+## How task C was checked
 
 | Test | Result |
 |---|---|
-| Temporal holdout (locked 2024–25) | PR-AUC 0.961, acc 96.7%, recall 89.4% |
-| Rolling-origin backtest, 7 years | mean PR-AUC 0.818, **every year >90% accuracy** |
-| Horizon sweep (2/4/8 weeks) | 0.961 / 0.919 / 0.813 PR-AUC |
-| Threshold sweep (50/100/300 per 100k) | 0.925 / 0.919 / 0.850 PR-AUC |
-| **Spatial holdout (unseen municipalities)** | **PR-AUC 0.955** vs 0.962 seen |
-| Leave-whole-states-out | mean 0.872; spread is mostly a prevalence artefact (lift inverts the ordering) |
-| Shuffled-label control | collapses to 0.124 vs 0.144 chance ✅ |
-| Persistence baseline | 0.615 — beaten decisively |
-| **Temporal-leakage audit** | no lag column matched a future value ✅ |
-| Lag-alignment repair | 8,107 duplicate rows fixed; headline moved −0.0006 PR-AUC |
-| Reporting-delay stress (2 weeks) | 0.961 → 0.916 — robust to realistic delay |
+| Temporal holdout, locked 2024–25 | PR-AUC 0.960, accuracy 96.6%, recall 90.5% |
+| Rolling-origin backtest, 7 years | mean 0.907, worst year 0.846 |
+| Spatial holdout, unseen municipalities | 0.954 vs 0.961 seen |
+| Leave-whole-states-out | mean 0.872; the spread is mostly prevalence |
+| Horizon sweep, 2 / 4 / 8 weeks | 0.961 / 0.918 / 0.799 |
+| Threshold sweep, 50 / 100 / 300 per 100k | 0.960 / 0.961 / 0.936 |
+| Shuffled-label control | falls to 0.135 against a 0.145 chance rate |
+| Temporal-leakage audit | no lag column matched a future value |
+| Lag-alignment repair | 8,107 duplicate rows fixed; headline moved −0.0006 |
+| Reporting-delay stress, 2 weeks | 0.961 → 0.916 |
 
-## Run it
+The test years were locked before any of this and never tuned against. Thresholds come
+from the 2022–23 validation block only.
+
+## Running it
 
 ```bash
 python -m uv venv --python 3.11 .venv
 python -m uv pip install --python .venv/Scripts/python.exe \
   numpy pandas scikit-learn xgboost lightgbm scipy matplotlib plotly \
-  pyarrow duckdb requests joblib openpyxl shap streamlit
+  pyarrow duckdb requests joblib openpyxl shap streamlit pytest
 python -m uv pip install --python .venv/Scripts/python.exe torch \
   --index-url https://download.pytorch.org/whl/cpu
 
 .venv/Scripts/python.exe -m streamlit run app.py
 ```
 
-Three screens, the two tools first:
+Three screens:
 
-- **Patient assessment** — quick 6-value entry or full CBC, plus complication risk.
-  Optionally name the patient's district and it folds in local outbreak context.
-- **Outbreak forecast** — autonomous district forecasts showing *both* continuation
-  and emergence risk, on a map and in a ranked table.
-- **About the models** — four sub-tabs (what it does · how well it works · where it
-  fails · data & methods). Conclusions first, raw tables behind expanders.
+- **Patient assessment** — six values or a full CBC, plus complication risk for a patient
+  already known to have dengue. Name a district and it folds in the local outbreak picture.
+- **Outbreak forecast** — every district sorted into outbreak now, outbreak likely, clear,
+  or not assessable, with a map and a ranked table.
+- **About the models** — what it does, how well it works, where it fails, and what it was
+  built on. Every number on that screen is read from `reports/`, not typed in.
 
-## Reproduce the pipeline
+Tests: `.venv/Scripts/python.exe -m pytest tests/ -q`
+
+## Layout
+
+```
+app.py                  the Streamlit app
+src/dengue/             the package everything imports
+  config.py             paths, horizons, thresholds, split years, seed
+  risk.py               the district risk rule
+  predictor.py          one interface over all four model bundles
+  evidence.py           named access to reports/
+  emergence.py          emergence labelling and eligibility
+  experiment.py         one configured Brazil run
+tests/                  pytest
+docs/adr/               decisions that shouldn't be re-argued
+frozen/v2_final/        the immutable release
+reports/                every metric, forecast and audit output
+```
+
+## Rebuilding the pipeline
+
+Order matters — later scripts read what earlier ones write.
 
 ```bash
-.venv/Scripts/python.exe run_audit.py             # dataset integrity audit
-.venv/Scripts/python.exe transfer_test.py         # synthetic -> real transfer
-.venv/Scripts/python.exe train_model1.py          # screening model comparison
-.venv/Scripts/python.exe finalize_model1.py       # nested CV + calibration
-.venv/Scripts/python.exe run_ablation.py          # feature-group ablation
-.venv/Scripts/python.exe finalize_peds.py         # complication model
-.venv/Scripts/python.exe train_model2.py          # outbreak forecasting
-.venv/Scripts/python.exe robustness_model2.py     # backtest + sweeps + controls
-.venv/Scripts/python.exe train_lstm.py            # LSTM comparison
-.venv/Scripts/python.exe shap_model2.py           # explainability
-.venv/Scripts/python.exe spatial_and_ablation.py  # spatial holdout + info ablation
-.venv/Scripts/python.exe calibration_and_errors.py# calibration + error analysis
-.venv/Scripts/python.exe transfer_srilanka.py     # Brazil -> Sri Lanka
-.venv/Scripts/python.exe finalize_srilanka.py     # production SL model + forecasts
-.venv/Scripts/python.exe leakage_audit.py         # timestamp chain + reporting delay
-.venv/Scripts/python.exe freeze_v2.py             # immutable hashed release
-.venv/Scripts/python.exe experiments/emergence_v1/run_emergence.py
-.venv/Scripts/python.exe finalize_emergence.py
+.venv/Scripts/python.exe run_audit.py              # dataset integrity gate
+.venv/Scripts/python.exe transfer_test.py          # synthetic -> real transfer
+.venv/Scripts/python.exe train_model1.py           # screening model comparison
+.venv/Scripts/python.exe finalize_model1.py        # nested CV + calibration
+.venv/Scripts/python.exe derive_reports.py --write # artifacts derived from the above
+.venv/Scripts/python.exe run_ablation.py           # feature-group ablation
+.venv/Scripts/python.exe finalize_peds.py          # complication model
+.venv/Scripts/python.exe train_model2.py           # outbreak forecasting
+.venv/Scripts/python.exe train_lstm.py             # LSTM comparison
+.venv/Scripts/python.exe robustness_model2.py      # backtest, sweeps, controls
+.venv/Scripts/python.exe shap_model2.py            # explainability
+.venv/Scripts/python.exe spatial_and_ablation.py   # spatial holdout + info ablation
+.venv/Scripts/python.exe calibration_and_errors.py # calibration + error analysis
+.venv/Scripts/python.exe leakage_audit.py          # timestamp chain + delay stress
+.venv/Scripts/python.exe transfer_srilanka.py      # Brazil -> Sri Lanka
+.venv/Scripts/python.exe finalize_srilanka.py      # deployed continuation model
+.venv/Scripts/python.exe finalize_emergence.py     # deployed emergence model
 ```
+
+The Brazil parquet is 565 MB and is not in the repo; `fetch_full.py` pulls it from Zenodo
+and can resume. Nothing the app or the weekly refresh does needs it.
+
+## Keeping the data current
+
+```bash
+.venv/Scripts/python.exe refresh_data.py --check   # exit 0 current, 10 stale
+.venv/Scripts/python.exe refresh_data.py           # apply and regenerate forecasts
+```
+
+Two sources feed this. denguedatahub is tidy and reliable but lags by months. The
+Epidemiology Unit's Weekly Epidemiological Reports are current to within about six weeks
+but arrive as sideways-typeset PDFs. The parser is re-checked on every run against weeks
+denguedatahub already covers — currently 100% exact across 492 district-weeks — and the
+whole WER source is discarded if agreement drops below 95%.
+
+A GitHub Action runs this on Tuesdays and commits only when something changed.
 
 ## Data sources
 
 - **Screening** — Mendeley [6fsrsk3mb8](https://data.mendeley.com/datasets/6fsrsk3mb8/1)
   (used); [xrsbyjs24t](https://data.mendeley.com/datasets/xrsbyjs24t/1),
   [673swz9tb4](https://data.mendeley.com/datasets/673swz9tb4/1),
-  [zdtc3n6xv2](https://data.mendeley.com/datasets/zdtc3n6xv2/3) (audited, rejected).
-- **Complications** — Zenodo [6476112](https://zenodo.org/records/6476112), 303
-  paediatric dengue admissions.
-- **Outbreak (Brazil)** — DATASET_MULTIMODAL_V8, Zenodo
-  [22029053](https://zenodo.org/records/22029053): 4.7M municipality-weeks, 2010–2025.
-- **Outbreak (Sri Lanka)** — [denguedatahub](https://github.com/thiyangt/denguedatahub)
-  district-weekly 2006–2026; weather from [NASA POWER](https://power.larc.nasa.gov/).
+  [zdtc3n6xv2](https://data.mendeley.com/datasets/zdtc3n6xv2/3) (audited and rejected).
+- **Complications** — Zenodo [6476112](https://zenodo.org/records/6476112), 303 paediatric
+  dengue admissions.
+- **Outbreak, Brazil** — DATASET_MULTIMODAL_V8, Zenodo
+  [22029053](https://zenodo.org/records/22029053), 4.7M municipality-weeks, 2010–2025.
+- **Outbreak, Sri Lanka** — [denguedatahub](https://github.com/thiyangt/denguedatahub)
+  district-weekly 2006–2026, weather from [NASA POWER](https://power.larc.nasa.gov/).
+
+## Limitations
+
+Nothing here has been validated prospectively against a live surveillance feed. The Sri
+Lanka forecasts are not calibrated. The symptom ablation was run on the complication
+cohort rather than the screening cohort, because no audited real dataset has both
+dengue-negative controls and symptom records. Three report artifacts predate the current
+code and cannot be regenerated; `src/dengue/artifacts.py` records which and why.
 
 ---
 
-**Clinical framing.** All outputs are screening and risk estimates, **not diagnoses**.
-The system is decision support for prioritisation, never autonomous action. RT-PCR/NAAT
-and antigen/serological testing remain the clinical diagnostic standard.
+Everything here is a screening or risk estimate, not a diagnosis. It is decision support
+for prioritisation and never a trigger for automatic action. RT-PCR/NAAT and antigen
+testing remain the diagnostic standard.

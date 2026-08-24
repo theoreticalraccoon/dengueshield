@@ -767,7 +767,8 @@ else:
     header(
         "About the models",
         "Evidence",
-        "Including the weaknesses. Everything below is out-of-sample.",
+        "Every figure here is out-of-sample, and the weaknesses get as much "
+        "space as the strengths.",
     )
     t1, t2, t3, t4 = st.tabs(
         ["What it does", "How well it works", "Where it fails", "Data & methods"]
@@ -775,9 +776,9 @@ else:
 
     with t1:
         st.markdown(
-            '<p class="note">Four separate questions, different populations, '
-            "very different difficulty. They are never combined into one "
-            '"dengue accuracy" figure.</p>',
+            '<p class="note">Four questions, four populations, four levels of '
+            "difficulty. Rolling them into a single dengue accuracy figure would "
+            "hide the two that are hard.</p>",
             unsafe_allow_html=True,
         )
         st.dataframe(
@@ -818,8 +819,9 @@ hospital preparedness raised""",
 
     with t2:
         st.markdown(
-            '<p class="note">The 2024–25 test set was locked before any later '
-            "development and never tuned against.</p>",
+            '<p class="note">The 2024–25 test years were locked before any of this '
+            "was built and never tuned against. Thresholds come from the 2022–23 "
+            "validation block.</p>",
             unsafe_allow_html=True,
         )
         cont = headline()["continuation"]
@@ -930,32 +932,47 @@ hospital preparedness raised""",
                 )
 
     with t3:
+        mom = (evidence.calibration_errors() or {}).get("momentum", {})
+        fp_hot, tn_hot = mom.get("fp_at_epidemic_level"), mom.get("tn_at_epidemic_level")
+        emg = headline()["emergence"]
+
         finding(
-            "It tracks trajectory, not emergence",
-            "Recall is 0.92 where transmission is already elevated and near zero "
-            "where it is low — arguably the exact situation where early warning "
-            "would matter most.",
+            "It reads momentum, not emergence",
+            "Recall is 0.92 where transmission is already high and close to zero "
+            "where it is low. That is the wrong way round for early warning.",
         )
+        if fp_hot and tn_hot:
+            finding(
+                "False alarms are outbreaks on the way down",
+                f"{fp_hot:.0%} of them are districts already at epidemic level, "
+                f"against {tn_hot:.1%} of true negatives. The model is following "
+                f"outbreaks that are subsiding.",
+            )
         finding(
-            "Momentum carries through subsiding outbreaks",
-            "54.5% of false alarms are districts already at epidemic level, against "
-            "1.5% of true negatives — 37× more likely.",
+            "Accuracy is the wrong dial for emergence",
+            "Predicting no new outbreak every week scores 93.5% and catches nothing, "
+            "because outbreaks begin in only 6.5% of district-weeks. The deployed "
+            "model scores 79.2% and catches 74% of them"
+            + (f", at PR-AUC {emg.score:.3f}." if emg.known else "."),
         )
         finding(
             "Screening from a blood count is weak",
-            "ROC-AUC 0.681. It prioritises testing; it cannot rule dengue out.",
+            "ROC-AUC 0.681. Good enough to decide who gets tested first, nowhere "
+            "near good enough to send anyone home.",
         )
         finding(
-            "It does not transfer between countries",
-            "The same model scoring 0.910 on Brazil reaches 0.449 on Sri Lanka, below "
-            "the persistence baseline of 0.476. Local training reaches 0.708.",
+            "It does not travel between countries",
+            "The model scoring 0.910 in Brazil reaches 0.449 in Sri Lanka, below Sri "
+            "Lanka's own persistence baseline of 0.476. Training locally gets it "
+            "back to 0.708.",
         )
         st.markdown(
-            '<p class="note" style="margin-top:1rem">Also true: the complication '
-            "cohort is small (303 paediatric admissions, 63 events); Sri Lankan "
-            "probabilities are not calibrated; headline figures assume complete "
-            "reporting at week close, and a realistic two-week delay costs 0.045 "
-            "PR-AUC; nothing has been tested prospectively.</p>",
+            '<p class="note" style="margin-top:1rem">Also worth knowing: the '
+            "complication cohort is small, at 303 paediatric admissions and 63 "
+            "events. Sri Lankan probabilities are not calibrated. The headline "
+            "figures assume complete reporting at week close, and a realistic "
+            "two-week delay costs 0.045 PR-AUC. None of it has been tested "
+            "prospectively against a live feed.</p>",
             unsafe_allow_html=True,
         )
 
