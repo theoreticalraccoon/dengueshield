@@ -166,6 +166,123 @@ def calibration_errors(root: Path = REPORTS) -> dict:
     return _json(root, "model2_calibration_errors.json") or {}
 
 
+def spatial_holdout(root: Path = REPORTS) -> pd.DataFrame | None:
+    """Seen vs unseen municipalities - does the model generalise geographically?"""
+    return _csv(root, "model2_spatial_holdout.csv")
+
+
+def generalisation_gap(root: Path = REPORTS) -> tuple[float | None, float | None]:
+    """(PR-AUC on unseen municipalities, its gap vs seen ones).
+
+    Both come from the same file, so the score and the gap are always the same
+    experiment - the reason these stopped being string literals in the app.
+    """
+    df = spatial_holdout(root)
+    if df is None or "condition" not in df.columns:
+        return None, None
+    by = df.set_index("condition").pr_auc
+    seen = by.get("A_temporal_seen_municipalities")
+    unseen = by.get("B_spatiotemporal_unseen_municipalities")
+    if unseen is None:
+        return None, None
+    return float(unseen), (None if seen is None else float(unseen) - float(seen))
+
+
+def calibration_gap(root: Path = REPORTS) -> tuple[float | None, float | None]:
+    """(calibrated ECE, improvement over raw). Lower is better, so the gap is negative."""
+    cal = calibration_errors(root)
+    raw = (cal.get("raw") or {}).get("ece")
+    fitted = (cal.get("calibrated") or {}).get("ece")
+    if fitted is None:
+        return None, None
+    return float(fitted), (None if raw is None else float(fitted) - float(raw))
+
+
+def validation_battery(root: Path = REPORTS) -> list[tuple[str, str]]:
+    """Every out-of-sample check, read from the artifact that produced it.
+
+    This table used to be eight hand-typed strings in the app. After the
+    horizon-2 retrain six of them were wrong - the rolling-origin and threshold
+    sweeps had been run at horizon 4. Assembling it from the reports means a
+    re-run moves the page.
+    """
+    rows: list[tuple[str, str]] = []
+
+    head = headline_metrics(root).get("continuation")
+    summary = _json(root, "model2_summary.json")
+    acc = None
+    if isinstance(summary, list):
+        best = next((r for r in summary if r.get("model") == "LightGBM"), None)
+        acc = (best or {}).get("accuracy")
+    if head and head.known:
+        tail = f" · {acc:.1%} acc" if acc else ""
+        rows.append(("Temporal holdout (locked 2024–25)", f"PR-AUC {head.score:.3f}{tail}"))
+
+    rb = robustness(root)
+    ro = [r["pr_auc"] for r in rb.get("rolling_origin", []) if "pr_auc" in r]
+    if ro:
+        rows.append(
+            (
+                f"Rolling-origin backtest, {len(ro)} years",
+                f"mean {sum(ro) / len(ro):.3f} · worst year {min(ro):.3f}",
+            )
+        )
+
+    unseen, gap = generalisation_gap(root)
+    if unseen is not None and gap is not None:
+        rows.append(
+            ("Spatial holdout, unseen municipalities", f"{unseen:.3f} vs {unseen - gap:.3f} seen")
+        )
+
+    holdout = spatial_holdout(root)
+    if holdout is not None and "condition" in holdout.columns:
+        folds = holdout[holdout.condition.str.startswith("state_fold")]
+        if not folds.empty:
+            rows.append(
+                (
+                    "Leave-whole-states-out",
+                    f"mean {folds.pr_auc.mean():.3f} (spread is prevalence)",
+                )
+            )
+
+    hz = rb.get("horizons", [])
+    if hz:
+        labels = " / ".join(str(int(r["horizon"])) for r in hz)
+        scores = " / ".join(f"{r['pr_auc']:.3f}" for r in hz)
+        rows.append((f"Horizon sweep ({labels} weeks)", scores))
+
+    shuffled = (rb.get("shuffled_control") or {}).get("pr_auc")
+    if shuffled is not None:
+        chance = (rb.get("shuffled_control") or {}).get("test_prevalence")
+        note = f" (chance {chance:.3f})" if chance else ""
+        rows.append(("Shuffled-label control", f"collapses to {shuffled:.3f}{note}"))
+
+    leak = _json(root, "leakage_audit.json") or {}
+    checks = leak.get("contamination_checks") or {}
+    if checks:
+        clean = all(bool(v) for v in checks.values() if isinstance(v, (bool, int, float)))
+        rows.append(
+            (
+                "Temporal-leakage audit",
+                "no lag matched a future value" if clean else "CONTAMINATION DETECTED",
+            )
+        )
+
+    delay = _csv(root, "reporting_delay_stress.csv")
+    if delay is not None and {"delay_weeks", "pr_auc"} <= set(delay.columns):
+        d = delay.set_index("delay_weeks").pr_auc
+        if 0 in d.index and d.index.max() > 0:
+            worst = d.index.max()
+            rows.append(
+                (
+                    f"Reporting-delay stress ({int(worst)} weeks)",
+                    f"{d[0]:.3f} → {d[worst]:.3f}",
+                )
+            )
+
+    return rows
+
+
 def transfer(root: Path = REPORTS) -> pd.DataFrame | None:
     """Brazil -> Sri Lanka zero-shot transfer against local training."""
     return _csv(root, "srilanka_transfer.csv")

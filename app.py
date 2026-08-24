@@ -835,8 +835,19 @@ hospital preparedness raised""",
             "n/a" if cont.baseline is None else f"{cont.baseline:.3f}",
             None if not (cont.known and cont.baseline) else f"+{cont.score - cont.baseline:.2f}",
         )
-        c[2].metric("Unseen districts", "0.955", "−0.007")
-        c[3].metric("Calibration (ECE)", "0.0052", "−0.014", delta_color="inverse")
+        unseen, geo_gap = evidence.generalisation_gap()
+        c[2].metric(
+            "Unseen districts",
+            "n/a" if unseen is None else f"{unseen:.3f}",
+            None if geo_gap is None else f"{geo_gap:+.3f}".replace("-", "−"),
+        )
+        ece, ece_gain = evidence.calibration_gap()
+        c[3].metric(
+            "Calibration (ECE)",
+            "n/a" if ece is None else f"{ece:.4f}",
+            None if ece_gain is None else f"{ece_gain:+.3f}".replace("-", "−"),
+            delta_color="inverse",
+        )
 
         rb = evidence.robustness()
         if rb and "rolling_origin" in rb:
@@ -903,16 +914,7 @@ hospital preparedness raised""",
         with st.expander("Full validation battery"):
             st.dataframe(
                 pd.DataFrame(
-                    [
-                        ("Temporal holdout (locked 2024–25)", "PR-AUC 0.961 · 96.7% acc"),
-                        ("Rolling-origin backtest, 7 years", "mean 0.818 · every year >90%"),
-                        ("Spatial holdout, unseen municipalities", "0.955 vs 0.962 seen"),
-                        ("Leave-whole-states-out", "mean 0.872 (spread is prevalence)"),
-                        ("Horizon sweep (2 / 4 / 8 weeks)", "0.961 / 0.919 / 0.813"),
-                        ("Shuffled-label control", "collapses to 0.124 (chance 0.144)"),
-                        ("Temporal-leakage audit", "no lag matched a future value"),
-                        ("Reporting-delay stress (2 weeks)", "0.961 → 0.916"),
-                    ],
+                    evidence.validation_battery() or [("No validation reports found", "—")],
                     columns=["Test", "Result"],
                 ),
                 hide_index=True,

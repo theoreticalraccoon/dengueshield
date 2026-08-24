@@ -3,95 +3,95 @@
   "drivers": [
     {
       "driver": "Recent dengue incidence",
-      "mean_abs_shap": 3.501729545718608,
+      "mean_abs_shap": 3.4446394891861405,
       "n_features": 15,
-      "pct_of_total": 50.1275182005936
+      "pct_of_total": 50.092835258035024
     },
     {
       "driver": "Temperature",
-      "mean_abs_shap": 0.7284475489910522,
+      "mean_abs_shap": 0.7271053302997783,
       "n_features": 9,
-      "pct_of_total": 10.427780699075456
-    },
-    {
-      "driver": "Seasonality",
-      "mean_abs_shap": 0.581634766258436,
-      "n_features": 2,
-      "pct_of_total": 8.326144823881457
-    },
-    {
-      "driver": "Rainfall",
-      "mean_abs_shap": 0.5035095091337621,
-      "n_features": 8,
-      "pct_of_total": 7.207775972914277
+      "pct_of_total": 10.573753114161589
     },
     {
       "driver": "Population",
-      "mean_abs_shap": 0.4354148501503533,
+      "mean_abs_shap": 0.5163600967735003,
       "n_features": 5,
-      "pct_of_total": 6.23299587839571
+      "pct_of_total": 7.509041611669288
+    },
+    {
+      "driver": "Seasonality",
+      "mean_abs_shap": 0.5082722736494752,
+      "n_features": 2,
+      "pct_of_total": 7.3914264032796195
+    },
+    {
+      "driver": "Rainfall",
+      "mean_abs_shap": 0.455658390191634,
+      "n_features": 8,
+      "pct_of_total": 6.626301749563883
     },
     {
       "driver": "Humidity",
-      "mean_abs_shap": 0.3817456487980075,
+      "mean_abs_shap": 0.3826137444138326,
       "n_features": 5,
-      "pct_of_total": 5.4647172799270365
+      "pct_of_total": 5.564067684456118
     },
     {
       "driver": "Land cover",
-      "mean_abs_shap": 0.2984676793939044,
+      "mean_abs_shap": 0.3005473332626519,
       "n_features": 6,
-      "pct_of_total": 4.272586970458497
+      "pct_of_total": 4.37063678205839
     },
     {
       "driver": "Sanitation",
-      "mean_abs_shap": 0.21134700050346522,
+      "mean_abs_shap": 0.21418315030933177,
       "n_features": 3,
-      "pct_of_total": 3.0254479896459867
+      "pct_of_total": 3.1147065744250764
     },
     {
       "driver": "ENSO",
-      "mean_abs_shap": 0.17793474264867998,
+      "mean_abs_shap": 0.1802598781607907,
       "n_features": 2,
-      "pct_of_total": 2.5471490399779695
+      "pct_of_total": 2.621385607605455
     },
     {
       "driver": "Vegetation (NDVI/EVI)",
-      "mean_abs_shap": 0.16541186692966503,
+      "mean_abs_shap": 0.14687163806168638,
       "n_features": 3,
-      "pct_of_total": 2.367883145130036
+      "pct_of_total": 2.1358452147455584
     }
   ],
   "top_features": {
-    "p_inc100k": 1.617906447683806,
-    "inc_roll4": 0.6633299045566373,
-    "week_cos": 0.44447056905896937,
-    "population_total": 0.24778764110678125,
-    "casos": 0.22918130916712026,
-    "precip_roll4_sum": 0.21697804136074472,
-    "LST_Night_mean": 0.17400905136877468,
-    "week_sin": 0.13716419719946668,
-    "Rt": 0.13165660219737424,
-    "casos_growth_1": 0.1277769943336587,
-    "casos_growth_4": 0.1260013209994212,
-    "casos_lag_8": 0.10720622057965579,
-    "umidmin": 0.10636021762978971,
-    "nino34": 0.10299977395792782,
-    "tempmin": 0.09983405223852058,
-    "water_supply_pct": 0.09813128242216561,
-    "precip_roll8_sum": 0.09345875063058072,
-    "umidmax": 0.09108344980904313,
-    "tempmax": 0.09098855715583225,
-    "Rt_lag_4": 0.09033399965332604,
-    "Rt_lag_1": 0.08697744183304243,
-    "LST_Day_mean": 0.08425968810397287,
-    "area_km2": 0.0756622305450034,
-    "soi": 0.07493496869075214,
-    "umidmed_lag_4": 0.07223545071337428,
-    "tempmed_roll8_mean": 0.0689532471402378,
-    "tempmed": 0.06886714896856568,
-    "Rt_lag_2": 0.06562500362631563,
-    "umidmed_lag_1": 0.06461888122364627,
-    "precip_total_semana_lag_4": 0.06361556857456625
+    "p_inc100k": 1.5747432170345315,
+    "inc_roll4": 0.6653427619203313,
+    "week_cos": 0.38580541414530367,
+    "population_total": 0.3157173916205535,
+    "casos": 0.20380670692779138,
+    "precip_roll4_sum": 0.19117919100599112,
+    "LST_Night_mean": 0.19084329884052437,
+    "casos_growth_1": 0.15580259918256736,
+    "Rt_lag_4": 0.14433370799097883,
+    "week_sin": 0.1224668595041716,
+    "water_supply_pct": 0.11301434960790177,
+    "casos_growth_4": 0.1127353826595584,
+    "soi": 0.10545645487848551,
+    "umidmin": 0.10475535912840728,
+    "Rt_lag_1": 0.10217405919088493,
+    "tempmin": 0.10120911279313964,
+    "casos_roll8_mean": 0.096819766904085,
+    "umidmax": 0.09264269094998323,
+    "LST_Day_mean": 0.0886818378750797,
+    "casos_lag_8": 0.08324836436174493,
+    "precip_roll8_sum": 0.07755497290078842,
+    "tempmax": 0.07678846843656395,
+    "precip_total_semana_lag_4": 0.07610315430353568,
+    "nino34": 0.07480342328230517,
+    "umidmed_lag_1": 0.07348879180149236,
+    "area_km2": 0.07121280633174276,
+    "pct_cropland": 0.07115630337817729,
+    "umidmed_lag_4": 0.06786412501083462,
+    "casos_lag_1": 0.06578044070083312,
+    "population_density": 0.06391923816259096
   }
 }

@@ -50,15 +50,15 @@ district already in outbreak, which is exactly where C's recall lives.
    or disjoint class ranges.
 2. **SHAP attribution ≠ incremental value.** SHAP credits ~50% of the continuation
    model to environment; removing it costs **+0.006** PR-AUC and environment alone
-   (0.597) is worse than persistence (0.760). Always pair attribution with a
+   (0.595) is worse than persistence (0.758). Always pair attribution with a
    leave-group-out ablation.
 3. **Environment matters for emergence, not continuation** — +0.089 vs +0.006, a 15×
    difference, consistent across three configs. The central scientific result.
 4. **Zero-shot geographic transfer fails.** Brazil→Sri Lanka drops 0.910 → **0.449**,
    below persistence (0.476). Local training reaches 0.708.
 5. **The model tracks trajectory, not emergence.** Recall 0.92 at high baseline
-   incidence, ~0 at low. 54.5% of false alarms are districts already at epidemic level
-   (37× the true-negative rate).
+   incidence, ~0 at low. 53.3% of false alarms are districts already at epidemic level
+   (37.6× the true-negative rate).
 
 ## Layout
 
