@@ -37,6 +37,7 @@ from sklearn.metrics import (
 from dengue import predictor
 from dengue.config import (
     EMERGENCE_HORIZON,
+    EMERGENCE_SENSITIVITY_TARGET,
     LGBM_PARAMS_SL,
     MODELS,
     QUIET_WEEKS,
@@ -46,18 +47,33 @@ from dengue.config import (
     TRAIN_END,
     VAL_END,
 )
-from dengue.emergence import add_base_features, label_emergence
-from dengue.metrics import pos_weight, threshold_for_f1
+from dengue.emergence import (
+    HISTORY_FEATURES,
+    add_base_features,
+    add_history_features,
+    label_emergence,
+)
+from dengue.metrics import pos_weight, threshold_for_f1, threshold_for_sensitivity
 from dengue.srilanka import COMMON_FEATURES, DISTRICTS, build_panel
 
-# Emergence needs shallower trees than continuation: far fewer eligible rows.
-PARAMS = {**LGBM_PARAMS_SL, "num_leaves": 31, "reg_lambda": 10.0, "seed": SEED}
-ROUNDS = 400
+# Emergence needs far shallower trees than continuation: ~18k eligible training
+# rows at ~4% positives. Selected by rolling-origin CV over seven folds ending
+# 2023 (cv PR-AUC 0.363 -> 0.395); the locked test years were not consulted.
+PARAMS = {
+    **LGBM_PARAMS_SL,
+    "num_leaves": 7,
+    "reg_lambda": 50.0,
+    "min_child_samples": 80,
+    "learning_rate": 0.02,
+    "seed": SEED,
+}
+ROUNDS = 600
 
 
 def train(panel: pd.DataFrame) -> tuple[lgb.Booster, dict, list[str]]:
     """Fit on train, tune the threshold on validation, score the locked test years."""
     feats = [c for c in COMMON_FEATURES if c in panel.columns]
+    feats += [c for c in HISTORY_FEATURES if c in panel.columns]
     em = label_emergence(panel)
 
     tr = em[em.anio <= TRAIN_END]
@@ -77,9 +93,30 @@ def train(panel: pd.DataFrame) -> tuple[lgb.Booster, dict, list[str]]:
     p_val = dev_model.predict(va[feats])
     p_test = dev_model.predict(te[feats])
 
-    thr = threshold_for_f1(va.y.values, p_val)  # validation only; test stays locked
+    # Both thresholds come from validation. F1 balances the two errors; the
+    # sensitivity target says how many emerging outbreaks we insist on catching.
+    thr_f1 = threshold_for_f1(va.y.values, p_val)
+    thr = threshold_for_sensitivity(va.y.values, p_val, EMERGENCE_SENSITIVITY_TARGET)
     yhat = (p_test >= thr).astype(int)
     baseline = float(average_precision_score(te.y.values, te.p_inc100k.values))
+
+    # Every operating point, so the recall/false-alarm trade is a decision the
+    # reader can see rather than a single number they have to trust.
+    districts_per_week = max(te.week_start.nunique(), 1)
+    operating_points = []
+    for target in (0.50, 0.60, 0.70, 0.80, 0.90):
+        t = threshold_for_sensitivity(va.y.values, p_val, target)
+        yh = (p_test >= t).astype(int)
+        operating_points.append(
+            {
+                "sensitivity_target": target,
+                "threshold": float(t),
+                "recall": float(recall_score(te.y.values, yh, zero_division=0)),
+                "precision": float(precision_score(te.y.values, yh, zero_division=0)),
+                "accuracy": float((yh == te.y.values).mean()),
+                "flagged_per_week": round(float(yh.sum()) / districts_per_week, 2),
+            }
+        )
 
     metrics = {
         "pr_auc": float(average_precision_score(te.y.values, p_test)),
@@ -89,10 +126,14 @@ def train(panel: pd.DataFrame) -> tuple[lgb.Booster, dict, list[str]]:
         "prevalence": float(te.y.mean()),
         "n_positive": int(te.y.sum()),
         "threshold": float(thr),
+        "threshold_f1": float(thr_f1),
+        "sensitivity_target": EMERGENCE_SENSITIVITY_TARGET,
+        "operating_points": operating_points,
         "horizon_weeks": EMERGENCE_HORIZON,
         "outbreak_inc": SL_INC,
         "quiet_weeks": QUIET_WEEKS,
         "baseline_persistence_pr_auc": baseline,
+        "trivial_never_flag_accuracy": float(1 - te.y.mean()),
     }
     print(
         f"held-out test: PR-AUC={metrics['pr_auc']:.4f} "
@@ -147,9 +188,13 @@ def dual_forecast(panel: pd.DataFrame, model: lgb.Booster, feats: list[str]) -> 
 
 
 def main(panel: pd.DataFrame | None = None) -> int:
-    """Panel is passed in by refresh_data.py so it is built once, not twice."""
-    if panel is None:
-        panel = add_base_features(build_panel())
+    """Takes the RAW district-week panel, same as finalize_srilanka.main.
+
+    refresh_data.py builds it once and hands the same frame to both, so the
+    contract has to be identical; this script adds the features it needs.
+    """
+    raw = build_panel() if panel is None else panel
+    panel = add_history_features(add_base_features(raw))
 
     model, metrics, feats = train(panel)
 

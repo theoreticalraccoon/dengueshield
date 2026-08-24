@@ -29,12 +29,12 @@ fails. IDE diagnostics claiming `lightgbm`/`streamlit` are missing are false pos
 | A Screening | Does this patient have dengue? | ROC-AUC **0.681**, acc 76.2% |
 | B Complication | Needs closer monitoring? | ROC-AUC **0.874**, NPV 0.962 |
 | C Continuation | Will an outbreak persist 14d? | PR-AUC **0.960**, vs persistence 0.758 |
-| D Emergence | Will a *new* outbreak begin? | Brazil **0.583** (14.3× lift); Sri Lanka **0.400** |
+| D Emergence | Will a *new* outbreak begin? | Brazil **0.583** (14.3× lift); Sri Lanka **0.408**, recall **74%** |
 
 **D is two different numbers and they must not be conflated.** 0.583 / 14.3× is the
 *Brazil* exploratory experiment in `experiments/emergence_v1/emergence_results.csv`
 (`model_combined`, h4_inc100) and is what findings 2–3 below rest on. The model the
-app actually deploys is the *Sri Lanka* emergence model, PR-AUC **0.400** against a
+app actually deploys is the *Sri Lanka* emergence model, PR-AUC **0.408** against a
 persistence baseline of 0.250. The About screen quoted the Brazil figure beside Sri
 Lanka forecasts until the numbers were sourced from artifacts rather than typed in.
 
@@ -155,6 +155,13 @@ Brazil parquet does not and is not needed at runtime.
   fails soft - the forecast path does not depend on it. The app renders its freshness
   stamp; the situation *table* itself is still not rendered anywhere. Decide whether
   to surface it or drop the source.
+- **Emergence accuracy is a trap.** Predicting "no new outbreak" forever scores
+  **93.5%** on the locked test set and catches nothing; the deployed model scores
+  79.2% *because* it takes risks. Judge it on recall and PR-AUC, never accuracy.
+  `EMERGENCE_SENSITIVITY_TARGET` in `config.py` picks the operating point - 0.70
+  (default) catches 74% of emerging outbreaks at 5.3 flagged districts per week;
+  0.90 catches 91% at 13.9 of 26 districts, which is most of the country.
+
 - **Not yet deployed to Streamlit Cloud.** Needs a one-time browser sign-in at
   <https://share.streamlit.io/deploy?repository=theoreticalraccoon/dengueshield&branch=main&mainModule=app.py>.
   After that every `git push` auto-rebuilds; only `.streamlit/config.toml` changes may

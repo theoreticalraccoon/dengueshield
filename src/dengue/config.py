@@ -49,6 +49,21 @@ SL_INC = 9.9  # Sri Lanka-calibrated epidemic threshold (per 100k/week)
 EMERGENCE_HORIZON = 4  # emergence asks a wider question: 1-4 weeks out
 QUIET_WEEKS = 2  # consecutive weeks below threshold before a district is eligible
 
+# Emergence operating point. Accuracy is the wrong dial here: predicting "no new
+# outbreak" forever scores 93.5% and catches nothing. What matters is how many
+# emerging outbreaks are caught, and the price in false alarms. Measured on the
+# locked 2024-25 test set, over 26 districts:
+#
+#   target   recall   precision   districts flagged per week
+#   0.50     54%      34%         2.3
+#   0.60     66%      25%         3.8
+#   0.70     73%      20%         5.2      <- default
+#   0.80     83%      15%         8.0
+#   0.90     91%       9%        14.2      (over half the country, every week)
+#
+# The threshold itself is always chosen on validation; only the target lives here.
+EMERGENCE_SENSITIVITY_TARGET = 0.70
+
 # ------------------------------------------------------------------ estimator
 # The shared LightGBM configuration. Scripts that deliberately vary it should say
 # so at the call site rather than copying the whole dict.

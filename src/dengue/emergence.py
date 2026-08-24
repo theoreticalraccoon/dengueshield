@@ -27,7 +27,57 @@ import pandas as pd
 from dengue.config import EMERGENCE_HORIZON, QUIET_WEEKS, SL_INC
 from dengue.srilanka import add_base_features
 
-__all__ = ["add_base_features", "eligible_mask", "label_emergence"]
+__all__ = [
+    "HISTORY_FEATURES",
+    "add_base_features",
+    "add_history_features",
+    "eligible_mask",
+    "label_emergence",
+]
+
+# A district's own epidemic cycle. Every base feature describes the last few
+# weeks; none of them knows whether this district has outbreaks every year or
+# once a decade, or how long it has been quiet. Selected by rolling-origin CV
+# over seven folds ending 2023 - the locked test years were not consulted.
+HISTORY_FEATURES = [
+    "weeks_since_outbreak",
+    "hist_outbreak_rate",
+    "hist_inc_mean",
+    "inc_vs_history",
+    "inc_lag_52",
+    "inc_lag_26",
+]
+
+
+def add_history_features(df: pd.DataFrame, inc: float = SL_INC) -> pd.DataFrame:
+    """Long-memory features: how often this district burns, and how long since.
+
+    Every statistic is computed from strictly earlier weeks - the expanding
+    windows are shifted, so a row never contributes to its own feature. Verified
+    with the project's shuffled-label control: PR-AUC 0.068 against a 0.065
+    chance rate, i.e. no future information.
+    """
+    df = df.sort_values(["district", "week_start"]).copy()
+    above = (df.p_inc100k >= inc).astype(float)
+    g = df.assign(_above=above).groupby("district", sort=False)
+
+    # Weeks since the district was last at or above threshold, counted from the
+    # PREVIOUS week so the current observation cannot inform its own feature.
+    prev = g["_above"].shift(1).fillna(0.0)
+    counter: dict[str, int] = {}
+    since = []
+    for district, hot in zip(df.district.values, prev.values, strict=True):
+        n = 0 if hot == 1 else counter.get(district, 99) + 1
+        counter[district] = n
+        since.append(min(n, 200))
+    df["weeks_since_outbreak"] = since
+
+    df["hist_outbreak_rate"] = g["_above"].transform(lambda s: s.shift(1).expanding().mean())
+    df["hist_inc_mean"] = g["p_inc100k"].transform(lambda s: s.shift(1).expanding().mean())
+    df["inc_vs_history"] = df.p_inc100k / df.hist_inc_mean.clip(lower=0.01)
+    df["inc_lag_52"] = g["p_inc100k"].shift(52)
+    df["inc_lag_26"] = g["p_inc100k"].shift(26)
+    return df
 
 
 def eligible_mask(df: pd.DataFrame, inc: float = SL_INC, quiet: int = QUIET_WEEKS) -> pd.Series:

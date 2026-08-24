@@ -1,13 +1,58 @@
 {
-  "pr_auc": 0.39961937719899143,
-  "roc_auc": 0.8322333200159807,
-  "recall": 0.48,
-  "precision": 0.38181818181818183,
+  "pr_auc": 0.4078557773193249,
+  "roc_auc": 0.829002910792763,
+  "recall": 0.7371428571428571,
+  "precision": 0.2015625,
   "prevalence": 0.06534727408513816,
   "n_positive": 175,
-  "threshold": 0.7820986289180326,
+  "threshold": 0.649437990395328,
+  "threshold_f1": 0.8744370804113393,
+  "sensitivity_target": 0.7,
+  "operating_points": [
+    {
+      "sensitivity_target": 0.5,
+      "threshold": 0.8554358579041595,
+      "recall": 0.5257142857142857,
+      "precision": 0.3274021352313167,
+      "accuracy": 0.8984316654219567,
+      "flagged_per_week": 2.32
+    },
+    {
+      "sensitivity_target": 0.6,
+      "threshold": 0.7784958952949215,
+      "recall": 0.6285714285714286,
+      "precision": 0.248868778280543,
+      "accuracy": 0.8517550410754294,
+      "flagged_per_week": 3.65
+    },
+    {
+      "sensitivity_target": 0.7,
+      "threshold": 0.649437990395328,
+      "recall": 0.7371428571428571,
+      "precision": 0.2015625,
+      "accuracy": 0.7920089619118745,
+      "flagged_per_week": 5.29
+    },
+    {
+      "sensitivity_target": 0.8,
+      "threshold": 0.4605160955593194,
+      "recall": 0.8285714285714286,
+      "precision": 0.15088449531737774,
+      "accuracy": 0.6840926064227035,
+      "flagged_per_week": 7.94
+    },
+    {
+      "sensitivity_target": 0.9,
+      "threshold": 0.12187416309051559,
+      "recall": 0.9085714285714286,
+      "precision": 0.09441805225653206,
+      "accuracy": 0.4245705750560119,
+      "flagged_per_week": 13.92
+    }
+  ],
   "horizon_weeks": 4,
   "outbreak_inc": 9.9,
   "quiet_weeks": 2,
-  "baseline_persistence_pr_auc": 0.2500105281211048
+  "baseline_persistence_pr_auc": 0.2500105281211048,
+  "trivial_never_flag_accuracy": 0.9346527259148618
 }
