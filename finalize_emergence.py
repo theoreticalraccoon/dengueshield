@@ -29,12 +29,14 @@ import numpy as np
 import pandas as pd
 from sklearn.metrics import (
     average_precision_score,
+    brier_score_loss,
     precision_score,
     recall_score,
     roc_auc_score,
 )
 
 from dengue import predictor
+from dengue.calibration import apply_calibrator, fit_isotonic_oof
 from dengue.config import (
     EMERGENCE_HORIZON,
     EMERGENCE_SENSITIVITY_TARGET,
@@ -55,6 +57,7 @@ from dengue.emergence import (
 )
 from dengue.metrics import pos_weight, threshold_for_f1, threshold_for_sensitivity
 from dengue.srilanka import COMMON_FEATURES, DISTRICTS, build_panel
+from dengue.validation import ece, train_seed_ensemble
 
 # Emergence needs far shallower trees than continuation: ~18k eligible training
 # rows at ~4% positives. Selected by rolling-origin CV over seven folds ending
@@ -69,8 +72,11 @@ PARAMS = {
 }
 ROUNDS = 600
 
+# First fold of the out-of-fold calibration sweep, matching finalize_srilanka.py.
+CALIBRATION_FIRST_YEAR = 2016
 
-def train(panel: pd.DataFrame) -> tuple[lgb.Booster, dict, list[str]]:
+
+def train(panel: pd.DataFrame) -> tuple[lgb.Booster, dict, list[str], object]:
     """Fit on train, tune the threshold on validation, score the locked test years."""
     feats = [c for c in COMMON_FEATURES if c in panel.columns]
     feats += [c for c in HISTORY_FEATURES if c in panel.columns]
@@ -85,13 +91,33 @@ def train(panel: pd.DataFrame) -> tuple[lgb.Booster, dict, list[str]]:
         f"({int(te.y.sum())} positive test events)"
     )
 
-    dev_model = lgb.train(
+    # Seed-averaged: see dengue.validation.SeedEnsemble. A single booster here is
+    # a draw from a distribution 0.02 PR-AUC wide.
+    dev_model = train_seed_ensemble(
         {**PARAMS, "scale_pos_weight": pos_weight(tr.y.values)},
-        lgb.Dataset(tr[feats], label=tr.y.values),
+        tr,
+        feats,
         num_boost_round=ROUNDS,
     )
-    p_val = dev_model.predict(va[feats])
-    p_test = dev_model.predict(te[feats])
+
+    # `scale_pos_weight` is ~23 here, so the raw score is far above the event rate.
+    # The sensitivity target below is read off this scale, and the app prints it as
+    # a percentage, so it has to be a probability first. Fitted out-of-fold across
+    # the development years - never on test.
+    dev = pd.concat([tr, va])
+    calibrator, cal_report = fit_isotonic_oof(
+        {k: v for k, v in PARAMS.items() if k != "scale_pos_weight"},
+        dev,
+        feats,
+        num_boost_round=ROUNDS,
+        first_test_year=CALIBRATION_FIRST_YEAR,
+        pos_weight_fn=pos_weight,
+    )
+    print(f"  {cal_report.format()}")
+
+    raw_test = dev_model.predict(te[feats])
+    p_val = apply_calibrator(calibrator, dev_model.predict(va[feats]))
+    p_test = apply_calibrator(calibrator, raw_test)
 
     # Both thresholds come from validation. F1 balances the two errors; the
     # sensitivity target says how many emerging outbreaks we insist on catching.
@@ -118,9 +144,19 @@ def train(panel: pd.DataFrame) -> tuple[lgb.Booster, dict, list[str]]:
             }
         )
 
+    # Discrimination on the raw score, calibration on the calibrated one - see the
+    # same split in finalize_srilanka.py. Recall and precision below stay on the
+    # calibrated scale, because that is the scale the operating point lives on.
     metrics = {
-        "pr_auc": float(average_precision_score(te.y.values, p_test)),
-        "roc_auc": float(roc_auc_score(te.y.values, p_test)),
+        "pr_auc": float(average_precision_score(te.y.values, raw_test)),
+        "roc_auc": float(roc_auc_score(te.y.values, raw_test)),
+        # Must not EXCEED pr_auc. If it does, the calibrator saw test labels.
+        "pr_auc_calibrated": float(average_precision_score(te.y.values, p_test)),
+        "ece": float(ece(te.y.values, p_test)),
+        "ece_uncalibrated": float(ece(te.y.values, raw_test)),
+        "brier": float(brier_score_loss(te.y.values, np.clip(p_test, 0, 1))),
+        "brier_uncalibrated": float(brier_score_loss(te.y.values, np.clip(raw_test, 0, 1))),
+        "calibration_dev": cal_report.as_dict(),
         "recall": float(recall_score(te.y.values, yhat, zero_division=0)),
         "precision": float(precision_score(te.y.values, yhat, zero_division=0)),
         "prevalence": float(te.y.mean()),
@@ -140,17 +176,21 @@ def train(panel: pd.DataFrame) -> tuple[lgb.Booster, dict, list[str]]:
         f"(persistence baseline {baseline:.4f}) recall={metrics['recall']:.4f}"
     )
 
-    # Production model: refit on train+val at the validation-chosen threshold.
-    dev = pd.concat([tr, va])
-    model = lgb.train(
+    # Production model: refit on train+val at the validation-chosen threshold, with
+    # the same calibrator - which is why it was fitted out-of-fold across these
+    # years rather than on the validation split alone.
+    model = train_seed_ensemble(
         {**PARAMS, "scale_pos_weight": pos_weight(dev.y.values)},
-        lgb.Dataset(dev[feats], label=dev.y.values),
+        dev,
+        feats,
         num_boost_round=ROUNDS,
     )
-    return model, metrics, feats
+    return model, metrics, feats, calibrator
 
 
-def dual_forecast(panel: pd.DataFrame, model: lgb.Booster, feats: list[str]) -> pd.DataFrame:
+def dual_forecast(
+    panel: pd.DataFrame, model: lgb.Booster, feats: list[str], calibrator=None
+) -> pd.DataFrame:
     """One row per district: continuation risk, emergence risk, and eligibility."""
     continuation = predictor.load(predictor.SL_CONTINUATION)
     if continuation is None:
@@ -162,7 +202,7 @@ def dual_forecast(panel: pd.DataFrame, model: lgb.Booster, feats: list[str]) -> 
     latest = panel.week_start.max()
     recent = scored[scored.week_start >= latest - pd.Timedelta(weeks=1)].copy()
 
-    recent["emergence_risk"] = model.predict(recent[feats])
+    recent["emergence_risk"] = apply_calibrator(calibrator, model.predict(recent[feats]))
     recent.loc[~recent.eligible, "emergence_risk"] = np.nan  # question not asked
     recent["currently_in_outbreak"] = recent.p_inc100k >= SL_INC
     recent["continuation_risk"] = continuation.predict_frame(recent)
@@ -196,7 +236,7 @@ def main(panel: pd.DataFrame | None = None) -> int:
     raw = build_panel() if panel is None else panel
     panel = add_history_features(add_base_features(raw))
 
-    model, metrics, feats = train(panel)
+    model, metrics, feats, calibrator = train(panel)
 
     MODELS.mkdir(parents=True, exist_ok=True)
     predictor.save_bundle(
@@ -208,9 +248,10 @@ def main(panel: pd.DataFrame | None = None) -> int:
         horizon=EMERGENCE_HORIZON,
         outbreak_inc=SL_INC,
         quiet_weeks=QUIET_WEEKS,
+        calibrator=calibrator,
     )
 
-    out = dual_forecast(panel, model, feats)
+    out = dual_forecast(panel, model, feats, calibrator)
     REPORTS.mkdir(parents=True, exist_ok=True)
     out.to_csv(REPORTS / "srilanka_dual_risk.csv", index=False)
     (REPORTS / "srilanka_emergence.json").write_text(json.dumps(metrics, indent=2, default=float))

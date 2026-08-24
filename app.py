@@ -754,12 +754,25 @@ elif screen == "Outbreak forecast":
             f.update_yaxes(title="Weekly cases")
             st.plotly_chart(f, width="stretch")
 
-        st.markdown(
-            '<p class="note">Predicted probabilities, not calibrated ones. The '
-            "ranking is more reliable than the number, and the model detects "
-            "escalation far better than emergence.</p>",
-            unsafe_allow_html=True,
-        )
+        # Sourced, not asserted: this line used to say "not calibrated ones" as a
+        # string literal, which would have gone on saying it after the models were
+        # calibrated. When no artifact reports calibration, it says so instead.
+        _cal = evidence.srilanka_calibration()
+        if _cal:
+            _worst = max(after for _before, after in _cal.values())
+            _note = (
+                f"Calibrated probabilities - isotonic, fitted out of fold on the "
+                f"development years, expected calibration error {_worst:.3f} or better "
+                "on the held-out years. The model still detects escalation far better "
+                "than emergence."
+            )
+        else:
+            _note = (
+                "Predicted probabilities, not calibrated ones. The ranking is more "
+                "reliable than the number, and the model detects escalation far "
+                "better than emergence."
+            )
+        st.markdown(f'<p class="note">{_note}</p>', unsafe_allow_html=True)
 
 
 # ============================================================== 3. ABOUT
@@ -824,10 +837,13 @@ hospital preparedness raised""",
             "validation block.</p>",
             unsafe_allow_html=True,
         )
-        cont = headline()["continuation"]
+        # The Brazil experiment, not the deployed Sri Lanka model. The generalisation
+        # gap and calibration figures beside it are Brazil too, so this tab is one
+        # experiment throughout; the four-task table above describes what is deployed.
+        cont = evidence.brazil_continuation()
         c = st.columns(4)
         c[0].metric(
-            "14-day forecast", "n/a" if not cont.known else f"{cont.score:.3f}", "PR-AUC"
+            "14-day forecast (Brazil)", "n/a" if not cont.known else f"{cont.score:.3f}", "PR-AUC"
         )
         # The baseline comes from the same artifact as the score above it, so the
         # two are always the same experiment. They used to be quoted from runs at
@@ -966,10 +982,18 @@ hospital preparedness raised""",
             "Lanka's own persistence baseline of 0.476. Training locally gets it "
             "back to 0.708.",
         )
+        _cal = evidence.srilanka_calibration()
+        _cal_note = (
+            "Sri Lankan probabilities are calibrated out of fold (ECE "
+            + ", ".join(f"{t} {b:.3f}->{a:.3f}" for t, (b, a) in sorted(_cal.items()))
+            + "). "
+            if _cal
+            else "Sri Lankan probabilities are not calibrated. "
+        )
         st.markdown(
             '<p class="note" style="margin-top:1rem">Also worth knowing: the '
             "complication cohort is small, at 303 paediatric admissions and 63 "
-            "events. Sri Lankan probabilities are not calibrated. The headline "
+            f"events. {_cal_note}The headline "
             "figures assume complete reporting at week close, and a realistic "
             "two-week delay costs 0.045 PR-AUC. None of it has been tested "
             "prospectively against a live feed.</p>",

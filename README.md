@@ -24,16 +24,22 @@ populations, and averaging them would hide the two that are hard.
 | | A · Screening | B · Complication | C · Continuation | D · Emergence |
 |---|---|---|---|---|
 | Question | Does this patient have dengue? | Does this admission need closer monitoring? | Will an existing outbreak persist 14 days? | Is a new outbreak starting? |
-| Asked of | one febrile patient | one dengue admission | any district | quiet districts only |
-| n (test) | 1,511 | 303 | 66,660 | 2,678 (SL) · 53,805 (BR) |
-| Headline | ROC-AUC 0.681 | sens 90.5%, NPV 96.2% | PR-AUC 0.960 | PR-AUC 0.408, recall 74% |
-| Baseline | 0.685 majority class | — | 0.758 persistence | 0.250 persistence |
+| Asked of | one febrile patient | one dengue admission | any Sri Lankan district | quiet districts only |
+| n (test) | 1,511 | 303 | 3,247 | 2,678 |
+| Headline | ROC-AUC 0.690 | sens 90.5%, NPV 96.2% | PR-AUC 0.725 | PR-AUC 0.405, recall 73% |
+| Baseline | 0.685 majority class | — | 0.469 persistence | 0.250 persistence |
 | Verdict | modest | strong | strong | the hard one |
 
-C and D are the same phenomenon asked of disjoint populations. D excludes every district
-already in outbreak, which is precisely where C's recall comes from. Task D has two
-numbers that should never be merged: 0.583 is a Brazil experiment, 0.408 is the Sri Lanka
-model the app actually deploys.
+Every column above is a model the app deploys. C and D are the same phenomenon asked of
+disjoint populations: D excludes every district already in outbreak, which is precisely
+where C's recall comes from.
+
+**Both C and D have a second, larger number that is not this one.** The Brazil
+municipality panel scores PR-AUC **0.960** for continuation (against a 0.758 persistence
+baseline) and **0.583** for emergence, because it has thousands of municipalities against
+Sri Lanka's 26 districts. Neither is deployed. The C row above was sourced from the Brazil
+artifact until 2026-08-24 and sat beside Sri Lankan emergence in the same table — the
+mistake D had already been fixed for.
 
 ### A note on accuracy for task D
 
@@ -72,10 +78,19 @@ Brazil → Sri Lanka zero-shot collapses to 0.449, below Sri Lanka's own persist
 baseline of 0.476. Training locally recovers it to 0.708.
 
 **Calibration has to be earned.** Isotonic regression takes the Brazil model's expected
-calibration error from 0.019 to 0.005, so those outputs are genuine probabilities. The Sri
-Lanka model never got there, so the app says "predicted", not "calibrated".
+calibration error from 0.019 to 0.005. The Sri Lanka models are trained with
+`scale_pos_weight`, which fixes the ranking and wrecks the scale, so they needed the same
+treatment: fitted out of fold across the development years, their test ECE falls from
+0.140 to 0.023 (continuation) and 0.292 to 0.039 (emergence). It costs a little PR-AUC —
+isotonic merges scores it cannot separate into ties, and PR-AUC charges for ties — which
+is why discrimination is reported on the raw score and calibration on the calibrated one.
 
 ## How task C was checked
+
+Every row below is the **Brazil** municipality panel — that is where the validation
+battery was run, because 66,660 test rows across thousands of municipalities support
+questions the 26-district Sri Lankan panel cannot answer. It is not the deployed model;
+see the note under the task table.
 
 | Test | Result |
 |---|---|
@@ -191,8 +206,11 @@ A GitHub Action runs this on Tuesdays and commits only when something changed.
 
 ## Limitations
 
-Nothing here has been validated prospectively against a live surveillance feed. The Sri
-Lanka forecasts are not calibrated. The symptom ablation was run on the complication
+Nothing here has been validated prospectively against a live surveillance feed. The
+emergence model resists improvement: spatial neighbour features, re-tuning, ensembling,
+extra training rows and a discrete-time hazard reformulation all fail a paired
+rolling-origin test, and Brazil transfer — zero-shot or fine-tuned — scores below training
+locally. `docs/adr/0003` records each so they are not re-run. The symptom ablation was run on the complication
 cohort rather than the screening cohort, because no audited real dataset has both
 dengue-negative controls and symptom records. Three report artifacts predate the current
 code and cannot be regenerated; `src/dengue/artifacts.py` records which and why.

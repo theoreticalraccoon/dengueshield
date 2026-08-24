@@ -100,6 +100,19 @@ HEMA_GROUPS = {
     ],
     "B_+demographics": ["Age", "Gender"],
     "C_+derived_ratios": ["NLR", "PLR", "PLT_WBC_ratio", "MPV_PLT_ratio"],
+    # Percentages turned into absolute counts, plus the indices built on them. Kept
+    # as its own tier rather than folded into C so the ablation table shows what the
+    # counts bought over the ratios alone.
+    "D_+absolute_counts": [
+        "neut_abs",
+        "lymph_abs",
+        "mono_abs",
+        "LMR",
+        "SII",
+        "plateletcrit_calc",
+        "RDW_PLT_ratio",
+        "HCT_PLT_ratio",
+    ],
 }
 
 
@@ -136,6 +149,39 @@ LGBM_GRID = {
 }
 
 
+def _tuned(X: pd.DataFrame, y: np.ndarray, kind: str, n_iter: int, folds: int, calibrate: bool):
+    """Search, then calibrate - the protocol both the folds and the final fit use.
+
+    This exists because `finalize_peds.py` did not use it. Its metrics came from
+    `nested_oof`, which tunes inside every fold, while the model it actually wrote
+    to models/peds_complications.joblib was a hand-written LightGBM with fixed
+    hyperparameters. The reported ROC-AUC 0.874 therefore described an estimator
+    that was never saved. Both paths now call this, so they cannot diverge again.
+    """
+    est = _model(kind)
+    if kind == "lgbm":
+        search = RandomizedSearchCV(
+            est,
+            LGBM_GRID,
+            n_iter=n_iter,
+            scoring="roc_auc",
+            cv=StratifiedKFold(4, shuffle=True, random_state=SEED),
+            random_state=SEED,
+            n_jobs=4,
+            refit=True,
+        )
+        search.fit(X, y)
+        est = search.best_estimator_
+    else:
+        est = clone(est).fit(X, y)
+
+    # Too few positives to split a calibration set out of: an uncalibrated
+    # estimator is honest, a calibrator fitted on 4 events is not.
+    if calibrate and min(np.bincount(y)) >= 8:
+        est = CalibratedClassifierCV(est, method="sigmoid", cv=folds).fit(X, y)
+    return est
+
+
 def nested_oof(
     X: pd.DataFrame,
     y: np.ndarray,
@@ -149,26 +195,18 @@ def nested_oof(
     for r in range(n_repeats):
         outer = StratifiedKFold(n_splits, shuffle=True, random_state=SEED + r)
         for tr, te in outer.split(X, y):
-            base = _model(kind)
-            if kind == "lgbm":
-                est = RandomizedSearchCV(
-                    base,
-                    LGBM_GRID,
-                    n_iter=25,
-                    scoring="roc_auc",
-                    cv=StratifiedKFold(4, shuffle=True, random_state=SEED),
-                    random_state=SEED,
-                    n_jobs=4,
-                    refit=True,
-                )
-                est.fit(X.iloc[tr], y[tr])
-                est = est.best_estimator_
-            else:
-                est = clone(base).fit(X.iloc[tr], y[tr])
-            if calibrate and min(np.bincount(y[tr])) >= 8:
-                est = CalibratedClassifierCV(est, method="sigmoid", cv=4).fit(X.iloc[tr], y[tr])
+            est = _tuned(X.iloc[tr], y[tr], kind, n_iter=25, folds=4, calibrate=calibrate)
             P[te, r] = est.predict_proba(X.iloc[te])[:, 1]
     return P.mean(axis=1)
+
+
+def fit_final(X: pd.DataFrame, y: np.ndarray, kind: str = "lgbm", n_iter: int = 60):
+    """The deployable estimator, fitted on everything by the in-fold protocol.
+
+    `n_iter` is larger than the folds use because this is fitted once and there is
+    no outer loop paying for it.
+    """
+    return _tuned(X, y, kind, n_iter=n_iter, folds=5, calibrate=True)
 
 
 

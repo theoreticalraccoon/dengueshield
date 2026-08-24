@@ -46,6 +46,7 @@ verify_fixes.py
 freeze_v2.py
 fetch_full.py
 derive_reports.py
+summarise_improvements.py
 
 # ---------------------------------------------------------------- data
 # Raw datasets are downloaded by the pipeline. The two Sri Lanka inputs travel
@@ -86,6 +87,7 @@ reports/*
 !reports/reporting_delay_stress.csv
 !reports/situation_freshness.json
 !reports/srilanka_current_risk.csv
+!reports/srilanka_continuation.json
 !reports/srilanka_dual_risk.csv
 !reports/srilanka_emergence.json
 !reports/srilanka_feature_importance.csv

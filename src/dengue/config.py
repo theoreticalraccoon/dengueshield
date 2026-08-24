@@ -55,11 +55,16 @@ QUIET_WEEKS = 2  # consecutive weeks below threshold before a district is eligib
 # locked 2024-25 test set, over 26 districts:
 #
 #   target   recall   precision   districts flagged per week
-#   0.50     54%      34%         2.3
-#   0.60     66%      25%         3.8
-#   0.70     73%      20%         5.2      <- default
-#   0.80     83%      15%         8.0
-#   0.90     91%       9%        14.2      (over half the country, every week)
+#   0.50     54%      35%         2.2
+#   0.60     66%      25%         3.7
+#   0.70     73%      20%         5.3      <- default
+#   0.80     83%      14%         8.5
+#   0.90     94%       8%        17.3      (two thirds of the country, every week)
+#
+# These are read off the CALIBRATED score, so the thresholds in
+# reports/srilanka_emergence.json are now probabilities (0.16 at the default target)
+# rather than the raw ~0.65 they used to be. The recalls are unchanged to within a
+# point; what moved is the scale they are read from.
 #
 # The threshold itself is always chosen on validation; only the target lives here.
 EMERGENCE_SENSITIVITY_TARGET = 0.70
@@ -82,4 +87,18 @@ LGBM_PARAMS = {
 
 # Sri Lanka has ~26 districts against Brazil's thousands of municipalities, so the
 # trees have to be smaller or they memorise the panel.
-LGBM_PARAMS_SL = {**LGBM_PARAMS, "num_leaves": 63, "reg_lambda": 5.0}
+#
+# This was 63, which was the right reasoning and not nearly enough of it. Nothing had
+# ever searched it. Over 8 rolling-origin folds with a paired bootstrap on the
+# per-fold difference (experiments/accuracy_v2/search_continuation.py), every
+# lower-capacity configuration beat 63 and none of the higher ones did:
+#
+#   num_leaves=31   +0.0023  [-0.0008, +0.0058]   (not resolvable)
+#   num_leaves=15   +0.0108  [+0.0056, +0.0160]
+#   num_leaves=7    +0.0160  [+0.0079, +0.0235]
+#   1000 rounds     -0.0076  [-0.0094, -0.0057]   (a regression)
+#
+# 15 leaves at 250 rounds is the best of them (+0.0191, continuation CV PR-AUC
+# 0.7911 -> 0.8101). It is not distinguishable from 7 leaves at 500; what IS
+# distinguishable is that 63 was too many. See docs/adr/0004-sri-lanka-capacity.md.
+LGBM_PARAMS_SL = {**LGBM_PARAMS, "num_leaves": 15, "reg_lambda": 5.0}

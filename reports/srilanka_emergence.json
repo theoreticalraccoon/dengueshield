@@ -1,53 +1,67 @@
 {
-  "pr_auc": 0.4078557773193249,
-  "roc_auc": 0.829002910792763,
-  "recall": 0.7371428571428571,
-  "precision": 0.2015625,
+  "pr_auc": 0.40542814371286157,
+  "roc_auc": 0.8267541806974488,
+  "pr_auc_calibrated": 0.35838365635422637,
+  "ece": 0.039192606915107696,
+  "ece_uncalibrated": 0.2921541216372942,
+  "brier": 0.05186157107309596,
+  "brier_uncalibrated": 0.19896060055589693,
+  "calibration_dev": {
+    "ece_raw": 0.19701341918533183,
+    "ece_calibrated": 4.885691075781534e-05,
+    "brier_raw": 0.14144561914637718,
+    "brier_calibrated": 0.05654266881859278,
+    "pr_auc_raw": 0.37048973654000206,
+    "pr_auc_calibrated": 0.3656052171934206,
+    "n_calibration_rows": 8617
+  },
+  "recall": 0.7314285714285714,
+  "precision": 0.1996879875195008,
   "prevalence": 0.06534727408513816,
   "n_positive": 175,
-  "threshold": 0.649437990395328,
-  "threshold_f1": 0.8744370804113393,
+  "threshold": 0.16356107660455488,
+  "threshold_f1": 0.24848484848484848,
   "sensitivity_target": 0.7,
   "operating_points": [
     {
       "sensitivity_target": 0.5,
-      "threshold": 0.8554358579041595,
-      "recall": 0.5257142857142857,
-      "precision": 0.3274021352313167,
-      "accuracy": 0.8984316654219567,
-      "flagged_per_week": 2.32
+      "threshold": 0.24848484848484848,
+      "recall": 0.5428571428571428,
+      "precision": 0.35185185185185186,
+      "accuracy": 0.9047796863330844,
+      "flagged_per_week": 2.23
     },
     {
       "sensitivity_target": 0.6,
-      "threshold": 0.7784958952949215,
-      "recall": 0.6285714285714286,
-      "precision": 0.248868778280543,
+      "threshold": 0.2033898305084746,
+      "recall": 0.6571428571428571,
+      "precision": 0.25442477876106195,
       "accuracy": 0.8517550410754294,
-      "flagged_per_week": 3.65
+      "flagged_per_week": 3.74
     },
     {
       "sensitivity_target": 0.7,
-      "threshold": 0.649437990395328,
-      "recall": 0.7371428571428571,
-      "precision": 0.2015625,
-      "accuracy": 0.7920089619118745,
-      "flagged_per_week": 5.29
+      "threshold": 0.16356107660455488,
+      "recall": 0.7314285714285714,
+      "precision": 0.1996879875195008,
+      "accuracy": 0.7908887229275579,
+      "flagged_per_week": 5.3
     },
     {
       "sensitivity_target": 0.8,
-      "threshold": 0.4605160955593194,
-      "recall": 0.8285714285714286,
-      "precision": 0.15088449531737774,
-      "accuracy": 0.6840926064227035,
-      "flagged_per_week": 7.94
+      "threshold": 0.08092485549132948,
+      "recall": 0.8342857142857143,
+      "precision": 0.141747572815534,
+      "accuracy": 0.6590739357729649,
+      "flagged_per_week": 8.51
     },
     {
       "sensitivity_target": 0.9,
-      "threshold": 0.12187416309051559,
-      "recall": 0.9085714285714286,
-      "precision": 0.09441805225653206,
-      "accuracy": 0.4245705750560119,
-      "flagged_per_week": 13.92
+      "threshold": 0.015829318651066758,
+      "recall": 0.9371428571428572,
+      "precision": 0.0782816229116945,
+      "accuracy": 0.2748319641523525,
+      "flagged_per_week": 17.31
     }
   ],
   "horizon_weeks": 4,

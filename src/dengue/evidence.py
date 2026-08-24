@@ -100,7 +100,7 @@ def headline_metrics(root: Path = REPORTS) -> dict[str, TaskScore]:
     """
     m1 = _json(root, "model1_operating_points.json") or {}
     peds = _json(root, "peds_final.json") or {}
-    m2 = _json(root, "model2_summary.json") or []
+    cont = _json(root, "srilanka_continuation.json") or {}
     emg = _json(root, "srilanka_emergence.json") or {}
 
     return {
@@ -118,12 +118,20 @@ def headline_metrics(root: Path = REPORTS) -> dict[str, TaskScore]:
             score=peds.get("roc_auc"),
             verdict="Strong",
         ),
+        # Sri Lanka, not Brazil. This row used to be sourced from
+        # model2_summary.json - the Brazil municipality panel, PR-AUC 0.960 - and
+        # sat in a table beside Sri Lankan emergence, above a screen showing Sri
+        # Lankan forecasts. It is exactly the confusion the emergence row was fixed
+        # for, and it survived in this one because both figures came from artifacts
+        # and nothing checked that they came from the same COUNTRY. The four rows
+        # describe the four deployed models; Brazil is a separate experiment and is
+        # reported as one, via `brazil_continuation`.
         "continuation": TaskScore(
             question="Will this district's outbreak continue 14 days?",
-            asked_of="any district",
+            asked_of="any Sri Lankan district",
             metric="PR-AUC",
-            score=_pick(m2, "LightGBM", "pr_auc"),
-            baseline=_pick(m2, "BASELINE_persistence", "pr_auc"),
+            score=cont.get("pr_auc"),
+            baseline=cont.get("baseline_persistence_pr_auc"),
             verdict="Strong",
         ),
         "emergence": TaskScore(
@@ -146,6 +154,55 @@ def screening_operating_points(root: Path = REPORTS) -> dict | None:
 
 def complication_metrics(root: Path = REPORTS) -> dict:
     return _json(root, "peds_final.json") or {}
+
+
+def brazil_continuation(root: Path = REPORTS) -> TaskScore:
+    """The Brazil municipality experiment, reported as its own thing.
+
+    Far stronger than the Sri Lankan model (PR-AUC ~0.96 against ~0.76) because it
+    has thousands of municipalities rather than 26 districts. It is not what the
+    app deploys, and putting it in the four-task table made it look as though it
+    were - see the note in `headline_metrics`.
+    """
+    rows = _json(root, "model2_summary.json") or []
+    return TaskScore(
+        question="Will this municipality's outbreak continue 14 days?",
+        asked_of="any Brazilian municipality (experiment, not deployed)",
+        metric="PR-AUC",
+        score=_pick(rows, "LightGBM", "pr_auc"),
+        baseline=_pick(rows, "BASELINE_persistence", "pr_auc"),
+        verdict="Strong",
+    )
+
+
+def continuation_metrics(root: Path = REPORTS) -> dict:
+    """Sri Lanka continuation, including its calibration figures.
+
+    These used to live only inside models/srilanka_outbreak.joblib, so the About
+    screen had nothing to quote and asserted the calibration status in prose.
+    """
+    return _json(root, "srilanka_continuation.json") or {}
+
+
+def emergence_metrics(root: Path = REPORTS) -> dict:
+    return _json(root, "srilanka_emergence.json") or {}
+
+
+def srilanka_calibration(root: Path = REPORTS) -> dict[str, tuple[float, float]]:
+    """{task: (ECE before, ECE after)} for whichever Sri Lanka models report it.
+
+    Empty when neither has been retrained since calibration was introduced, which
+    is what lets the app say nothing rather than say something stale.
+    """
+    out = {}
+    for task, metrics in (
+        ("continuation", continuation_metrics(root)),
+        ("emergence", emergence_metrics(root)),
+    ):
+        before, after = metrics.get("ece_uncalibrated"), metrics.get("ece")
+        if before is not None and after is not None:
+            out[task] = (float(before), float(after))
+    return out
 
 
 def dataset_audit(root: Path = REPORTS) -> pd.DataFrame | None:

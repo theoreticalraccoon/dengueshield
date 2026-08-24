@@ -5,8 +5,14 @@ with a different idea of the contract:
 
     model1_screening      threshold_sens90   metrics_nested_cv   predict_proba
     peds_complications    threshold_sens90   metrics             predict_proba
-    srilanka_outbreak     threshold          -- absent --        predict
+    srilanka_outbreak     threshold          metrics             predict
     srilanka_emergence    threshold          metrics             predict
+
+The two Sri Lanka bundles additionally carry a `calibrator`, because their estimator
+is trained with `scale_pos_weight` and therefore emits a score rather than a
+probability; the scikit-learn bundles calibrate inside the estimator instead. A
+bundle without the key passes its scores through untouched, so artifacts written
+before calibration existed still load and behave exactly as they did.
 
 So every caller had to remember which key this particular bundle uses, whether its
 estimator is a scikit-learn probability model or a bare LightGBM Booster, and how
@@ -32,8 +38,9 @@ from typing import Any
 import joblib
 import pandas as pd
 
+from dengue.calibration import apply_calibrator
 from dengue.config import MODELS, REPORTS
-from dengue.datasets import clinical_ratios
+from dengue.datasets import HEMA_COLUMNS, clinical_ratios
 
 # Bundle key aliases, most specific first. A bundle carries exactly one of each.
 THRESHOLD_KEYS = ("threshold_sens90", "threshold")
@@ -53,15 +60,12 @@ FILENAMES = {
 
 
 def _screening_ratios(frame: pd.DataFrame) -> pd.DataFrame:
-    """Rebuild the engineered CBC ratios exactly as load_hematology_1523 does."""
-    return clinical_ratios(
-        frame,
-        "Total Platelet Count(/cumm)",
-        "Total WBC count(/cumm)",
-        "Neutrophils(%)",
-        "Lymphocytes(%)",
-        "MPV(fl)",
-    )
+    """Rebuild the engineered CBC features exactly as load_hematology_1523 does.
+
+    Same function, same column mapping - `HEMA_COLUMNS` rather than a second copy
+    of the names, so adding a feature to training cannot leave inference behind.
+    """
+    return clinical_ratios(frame, **HEMA_COLUMNS)
 
 
 @dataclass(frozen=True)
@@ -107,6 +111,7 @@ class Predictor:
     metrics: dict
     defaults: dict
     derive: Callable[[pd.DataFrame], pd.DataFrame] | None = None
+    calibrator: Any = None
 
     def prepare(self, frame: pd.DataFrame) -> pd.DataFrame:
         """Fill unsupplied inputs, rebuild engineered features, order columns."""
@@ -123,13 +128,18 @@ class Predictor:
         return frame[self.features]
 
     def predict_frame(self, frame: pd.DataFrame):
-        """Probabilities for a frame already carrying every model feature."""
-        return probabilities(self.model, frame[self.features])
+        """Calibrated probabilities for a frame already carrying every model feature.
+
+        The threshold stored in the bundle is on the same scale as what this
+        returns, because both finalize scripts choose it from calibrated scores.
+        A bundle with no calibrator passes through unchanged.
+        """
+        return apply_calibrator(self.calibrator, probabilities(self.model, frame[self.features]))
 
     def predict_one(self, inputs: dict) -> Prediction:
         """Score a single case given whatever fields the caller has."""
         X = self.prepare(pd.DataFrame([dict(inputs)]))
-        p = float(probabilities(self.model, X)[0])
+        p = float(apply_calibrator(self.calibrator, probabilities(self.model, X))[0])
         return Prediction(probability=p, threshold=self.threshold, flag=p >= self.threshold)
 
 
@@ -147,6 +157,9 @@ def from_bundle(name: str, bundle: dict, defaults: dict | None = None) -> Predic
         metrics=dict(_first(bundle, METRICS_KEYS, {}) or {}),
         defaults=defaults or {},
         derive=_screening_ratios if name == SCREENING else None,
+        # Absent on the scikit-learn bundles, which calibrate inside the estimator
+        # itself, and on any bundle written before calibration existed.
+        calibrator=bundle.get("calibrator"),
     )
 
 

@@ -99,6 +99,7 @@ INVENTORY: tuple[Artifact, ...] = (
     # --- Sri Lanka
     _a("srilanka_current_risk.csv", "finalize_srilanka.py"),
     _a("srilanka_feature_importance.csv", "finalize_srilanka.py"),
+    _a("srilanka_continuation.json", "finalize_srilanka.py"),
     _a("srilanka_dual_risk.csv", "finalize_emergence.py"),
     _a("srilanka_emergence.json", "finalize_emergence.py"),
     _a("srilanka_transfer.csv", "transfer_srilanka.py"),
@@ -139,6 +140,7 @@ INVENTORY: tuple[Artifact, ...] = (
     _a("transfer_auc.csv", "transfer_test.py"),
     _a("srilanka_situation_history.csv", "refresh_situation.py"),
     # --- data integrity + provenance
+    _a("improvement_summary.json", "summarise_improvements.py"),
     _a("dataset_audit.csv", "run_audit.py"),
     _a("data_freshness.json", "refresh_data.py"),
     _a("srilanka_latest_situation.csv", "refresh_situation.py"),
