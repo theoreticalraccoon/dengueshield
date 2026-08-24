@@ -1,25 +1,95 @@
-# Raw datasets (1.2 GB) - downloaded by the pipeline, never needed by the app.
-# Must be data/raw/* rather than data/raw/ : git does not descend into an
-# ignored DIRECTORY, so the negations below would never be evaluated.
-data/raw/*
-*.pyc
-__pycache__/
+# The repo tracks what the deployed dashboard needs, plus what the weekly
+# refresh Action needs to keep it current. Everything else - the training and
+# analysis pipeline, the frozen release, tests, docs - stays local. Nothing here
+# is deleted, only untracked.
+#
+# NOTE the `dir/*` patterns below. Git does not descend into an ignored
+# DIRECTORY, so `reports/` would make every `!reports/keep.json` negation below
+# silently do nothing. This already bit once.
+
 .venv/
-_fix_code.py
-
-# Training-only artifact the app does not load
-models/model2_lstm.pt
-models/model2_lstm_scalers.joblib
-
-# Sri Lanka inputs DO travel with the repo: they are small (3.5 MB) and the
-# automated weekly refresh needs them. The 1.2 GB Brazil parquet does not.
-!data/raw/srilanka_weekly_district.csv
-!data/raw/srilanka_weather_daily.parquet
-data/raw/wer/
-data/raw/sl_weather_parts/
-
-# Tool caches. graphify-out/ is a knowledge-graph tool's output (62 files, 2.6 MB)
-# that was committed by accident; nothing in the project reads it.
-graphify-out/
+__pycache__/
+*.pyc
 .ruff_cache/
 .pytest_cache/
+graphify-out/
+.vscode/
+_fix_code.py
+
+# ---------------------------------------------------------------- local only
+frozen/
+tests/
+docs/
+experiments/
+REPORT.md
+CONTEXT.md
+CLAUDE.md
+pyrightconfig.json
+
+# The pipeline that produced the models. Rebuilding any of it needs the 565 MB
+# Brazil parquet, which is not in the repo either.
+train_model1.py
+train_model2.py
+train_lstm.py
+finalize_model1.py
+finalize_peds.py
+transfer_srilanka.py
+transfer_test.py
+run_audit.py
+run_ablation.py
+shap_model2.py
+spatial_and_ablation.py
+robustness_model2.py
+calibration_and_errors.py
+leakage_audit.py
+verify_fixes.py
+freeze_v2.py
+fetch_full.py
+derive_reports.py
+
+# ---------------------------------------------------------------- data
+# Raw datasets are downloaded by the pipeline. The two Sri Lanka inputs travel
+# with the repo because the weekly refresh needs them on a clean checkout.
+data/raw/*
+!data/raw/srilanka_weekly_district.csv
+!data/raw/srilanka_weather_daily.parquet
+
+data/processed/*
+!data/processed/srilanka_history.parquet
+
+# ---------------------------------------------------------------- models
+# Only the four the app loads. model2_outbreak is the Brazil model, which the
+# app never opens, and the LSTM is training-only.
+models/*
+!models/model1_screening.joblib
+!models/peds_complications.joblib
+!models/srilanka_outbreak.joblib
+!models/srilanka_emergence.joblib
+
+# ---------------------------------------------------------------- reports
+# The artifacts the app reads, plus the ones the refresh rewrites. The CI job
+# runs `git add -A reports/`, so anything not negated here would be re-added on
+# the next Tuesday run.
+reports/*
+!reports/cbc_population_medians.json
+!reports/data_freshness.json
+!reports/dataset_audit.csv
+!reports/leakage_audit.json
+!reports/model1_operating_points.json
+!reports/model2_calibration_errors.json
+!reports/model2_headtohead.csv
+!reports/model2_information_ablation.csv
+!reports/model2_robustness.json
+!reports/model2_spatial_holdout.csv
+!reports/model2_summary.json
+!reports/peds_final.json
+!reports/reporting_delay_stress.csv
+!reports/situation_freshness.json
+!reports/srilanka_current_risk.csv
+!reports/srilanka_dual_risk.csv
+!reports/srilanka_emergence.json
+!reports/srilanka_feature_importance.csv
+!reports/srilanka_latest_situation.csv
+!reports/srilanka_situation_history.csv
+!reports/srilanka_transfer.csv
+requirements-dev.txt
