@@ -54,6 +54,10 @@ summarise_improvements.py
 data/raw/*
 !data/raw/srilanka_weekly_district.csv
 !data/raw/srilanka_weather_daily.parquet
+# 20 KB of monthly ENSO index. Shipped for the same reason as the two above: the
+# weekly CI refresh has to build a panel on a clean checkout, and it must not fail
+# because NOAA is unreachable that morning.
+!data/raw/enso_nino34.csv
 
 data/processed/*
 !data/processed/srilanka_history.parquet

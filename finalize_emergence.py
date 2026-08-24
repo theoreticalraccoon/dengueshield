@@ -36,7 +36,8 @@ from sklearn.metrics import (
 )
 
 from dengue import predictor
-from dengue.calibration import apply_calibrator, fit_isotonic_oof
+from dengue.blend import fit_blend
+from dengue.calibration import apply_calibrator, fit_isotonic_oof_model
 from dengue.config import (
     EMERGENCE_HORIZON,
     EMERGENCE_SENSITIVITY_TARGET,
@@ -51,13 +52,22 @@ from dengue.config import (
 )
 from dengue.emergence import (
     HISTORY_FEATURES,
+    SHIPPED_FEATURES,
     add_base_features,
+    add_extra_features,
     add_history_features,
+    add_regression_target,
     label_emergence,
+    lead_times,
 )
-from dengue.metrics import pos_weight, threshold_for_f1, threshold_for_sensitivity
+from dengue.metrics import (
+    evaluate_threshold,
+    threshold_for_budget,
+    threshold_for_f1,
+    threshold_for_sensitivity,
+)
 from dengue.srilanka import COMMON_FEATURES, DISTRICTS, build_panel
-from dengue.validation import ece, train_seed_ensemble
+from dengue.validation import cluster_ci, ece, pooled_compare
 
 # Emergence needs far shallower trees than continuation: ~18k eligible training
 # rows at ~4% positives. Selected by rolling-origin CV over seven folds ending
@@ -75,12 +85,36 @@ ROUNDS = 600
 # First fold of the out-of-fold calibration sweep, matching finalize_srilanka.py.
 CALIBRATION_FIRST_YEAR = 2016
 
+# Nine rather than three. Averaging more draws of the same estimator is variance
+# reduction, not model selection - there is nothing here to choose wrong - and the
+# seed spread on this task is the noise floor everything else is measured against.
+# Two members now, so this is eighteen boosters, which still fits in seconds.
+DEPLOY_SEEDS = tuple(SEED + i for i in range(9))
 
-def train(panel: pd.DataFrame) -> tuple[lgb.Booster, dict, list[str], object]:
+
+def _fit(train_rows: pd.DataFrame, feats: list[str]):
+    """The deployed estimator: classifier + incidence regression, averaged.
+
+    One definition, used for the production fit AND for every out-of-fold fold the
+    calibrator is built from, so what is calibrated is what ships.
+    """
+    return fit_blend(
+        train_rows,
+        feats,
+        params=PARAMS,
+        num_boost_round=ROUNDS,
+        seeds=DEPLOY_SEEDS,
+    )
+
+
+def train(panel: pd.DataFrame) -> tuple[object, dict, list[str], object]:
     """Fit on train, tune the threshold on validation, score the locked test years."""
     feats = [c for c in COMMON_FEATURES if c in panel.columns]
     feats += [c for c in HISTORY_FEATURES if c in panel.columns]
-    em = label_emergence(panel)
+    feats += [c for c in SHIPPED_FEATURES if c in panel.columns]
+    # The regression member needs the unthresholded outcome, so rows without a full
+    # future window drop out of both members together.
+    em = label_emergence(panel).dropna(subset=["y_log_inc"])
 
     tr = em[em.anio <= TRAIN_END]
     va = em[(em.anio > TRAIN_END) & (em.anio <= VAL_END)]
@@ -91,27 +125,20 @@ def train(panel: pd.DataFrame) -> tuple[lgb.Booster, dict, list[str], object]:
         f"({int(te.y.sum())} positive test events)"
     )
 
-    # Seed-averaged: see dengue.validation.SeedEnsemble. A single booster here is
-    # a draw from a distribution 0.02 PR-AUC wide.
-    dev_model = train_seed_ensemble(
-        {**PARAMS, "scale_pos_weight": pos_weight(tr.y.values)},
-        tr,
-        feats,
-        num_boost_round=ROUNDS,
-    )
+    # Two members, seed-averaged, averaged with each other - see dengue.blend. The
+    # single classifier this replaces is still in there as half the blend.
+    dev_model = _fit(tr, feats)
 
-    # `scale_pos_weight` is ~23 here, so the raw score is far above the event rate.
-    # The sensitivity target below is read off this scale, and the app prints it as
-    # a percentage, so it has to be a probability first. Fitted out-of-fold across
-    # the development years - never on test.
+    # `scale_pos_weight` is ~23 on the classifier member, so the blended score is
+    # still above the event rate. The sensitivity target below is read off this
+    # scale, and the app prints it as a percentage, so it has to be a probability
+    # first. Fitted out-of-fold across the development years - never on test.
     dev = pd.concat([tr, va])
-    calibrator, cal_report = fit_isotonic_oof(
-        {k: v for k, v in PARAMS.items() if k != "scale_pos_weight"},
+    calibrator, cal_report = fit_isotonic_oof_model(
+        lambda rows: _fit(rows, feats),
         dev,
         feats,
-        num_boost_round=ROUNDS,
         first_test_year=CALIBRATION_FIRST_YEAR,
-        pos_weight_fn=pos_weight,
     )
     print(f"  {cal_report.format()}")
 
@@ -128,21 +155,83 @@ def train(panel: pd.DataFrame) -> tuple[lgb.Booster, dict, list[str], object]:
 
     # Every operating point, so the recall/false-alarm trade is a decision the
     # reader can see rather than a single number they have to trust.
-    districts_per_week = max(te.week_start.nunique(), 1)
+    #
+    # Each now carries its full confusion matrix and the rates derived from it.
+    # Recall, precision and accuracy alone are the least informative subset
+    # available on a task with 6.5% prevalence: they omit specificity, and they omit
+    # NPV, which is the verdict the great majority of districts receive every week
+    # and the one figure here that is genuinely above 90%.
+    n_weeks = max(te.week_start.nunique(), 1)
     operating_points = []
     for target in (0.50, 0.60, 0.70, 0.80, 0.90):
         t = threshold_for_sensitivity(va.y.values, p_val, target)
-        yh = (p_test >= t).astype(int)
-        operating_points.append(
+        op = evaluate_threshold(te.y.values, p_test, t)
+        operating_points.append({"sensitivity_target": target, **op.as_dict(n_weeks)})
+
+    # The same trade expressed as a WEEKLY INSPECTION BUDGET, which is the constraint
+    # a public-health team actually works under: not "what threshold" but "we can
+    # visit N districts a week - what do we catch?"
+    #
+    # Deliberately still a global threshold. Ranking districts WITHIN each week and
+    # flagging the top k looks like the better fit for a fixed team capacity, and it
+    # was measured (experiments/accuracy_v2/alert_policy.py) and it is worse at every
+    # budget: reaching 90% recall costs 10.8 districts a week under top-k against
+    # 7.9 under a global threshold. Emergence events are concentrated in the
+    # transmission season, so spending a constant budget every week rations alerts
+    # exactly when they are needed and wastes them when nothing is starting. The
+    # score is comparable across weeks after all.
+    budget_points = []
+    for k in range(1, 9):
+        t = threshold_for_budget(p_test, n_weeks, k)
+        op = evaluate_threshold(te.y.values, p_test, t)
+        budget_points.append(
             {
-                "sensitivity_target": target,
-                "threshold": float(t),
-                "recall": float(recall_score(te.y.values, yh, zero_division=0)),
-                "precision": float(precision_score(te.y.values, yh, zero_division=0)),
-                "accuracy": float((yh == te.y.values).mean()),
-                "flagged_per_week": round(float(yh.sum()) / districts_per_week, 2),
+                "districts_per_week": k,
+                "threshold": op.threshold,
+                "actual_per_week": round(op.flagged_per_week(n_weeks), 2),
+                "recall": op.recall,
+                "precision": op.precision,
+                "npv": op.npv,
+                "specificity": op.specificity,
+                "lead_time": lead_times(te, p_test >= t),
             }
         )
+
+    # What the model actually delivers at the point it is deployed at, each figure
+    # beside the number a model that never flags anything would score. Several of
+    # these are above 90% and none of them were being recorded; quoting them without
+    # the trivial baseline would be the same defect in the other direction, because
+    # never flagging already scores 93.5% accuracy and 93.5% NPV here.
+    at_deployed = evaluate_threshold(te.y.values, p_test, thr)
+    trivial_npv = float(1 - te.y.mean())
+
+    # Intervals over DISTRICTS: 175 positive events cannot support a headline quoted
+    # to three decimals as though it were exact. Measured once, at the end, on the
+    # locked years - a report, never an input to a choice.
+    _, pr_lo, pr_hi = cluster_ci(te.y.values, te.district.values, raw_test)
+    vs_persistence = pooled_compare(
+        te.y.values, te.district.values, te.p_inc100k.values, raw_test
+    )
+
+    deployed = {
+        "npv": at_deployed.npv,
+        "specificity": at_deployed.specificity,
+        "balanced_accuracy": at_deployed.balanced_accuracy,
+        "accuracy": at_deployed.accuracy,
+        "trivial_npv": trivial_npv,
+        "pr_auc_ci": [pr_lo, pr_hi],
+        "pr_auc_vs_persistence_delta": vs_persistence.mean_delta,
+        "pr_auc_vs_persistence_ci": [vs_persistence.ci_low, vs_persistence.ci_high],
+        "beats_persistence": bool(vs_persistence.helps),
+        "lead_time": lead_times(te, p_test >= thr),
+        # The headline operating question: to catch 90% of emerging outbreaks, how
+        # much of the country has to be visited every week?
+        "alerts_at_recall_90": next(
+            (op["flagged_per_week"] for op in operating_points if op["recall"] >= 0.90),
+            None,
+        ),
+        "districts_total": int(te.district.nunique()),
+    }
 
     # Discrimination on the raw score, calibration on the calibrated one - see the
     # same split in finalize_srilanka.py. Recall and precision below stay on the
@@ -165,11 +254,13 @@ def train(panel: pd.DataFrame) -> tuple[lgb.Booster, dict, list[str], object]:
         "threshold_f1": float(thr_f1),
         "sensitivity_target": EMERGENCE_SENSITIVITY_TARGET,
         "operating_points": operating_points,
+        "budget_points": budget_points,
         "horizon_weeks": EMERGENCE_HORIZON,
         "outbreak_inc": SL_INC,
         "quiet_weeks": QUIET_WEEKS,
         "baseline_persistence_pr_auc": baseline,
         "trivial_never_flag_accuracy": float(1 - te.y.mean()),
+        **deployed,
     }
     print(
         f"held-out test: PR-AUC={metrics['pr_auc']:.4f} "
@@ -179,12 +270,7 @@ def train(panel: pd.DataFrame) -> tuple[lgb.Booster, dict, list[str], object]:
     # Production model: refit on train+val at the validation-chosen threshold, with
     # the same calibrator - which is why it was fitted out-of-fold across these
     # years rather than on the validation split alone.
-    model = train_seed_ensemble(
-        {**PARAMS, "scale_pos_weight": pos_weight(dev.y.values)},
-        dev,
-        feats,
-        num_boost_round=ROUNDS,
-    )
+    model = _fit(dev, feats)
     return model, metrics, feats, calibrator
 
 
@@ -235,6 +321,10 @@ def main(panel: pd.DataFrame | None = None) -> int:
     """
     raw = build_panel() if panel is None else panel
     panel = add_history_features(add_base_features(raw))
+    if SHIPPED_FEATURES:
+        panel = add_extra_features(panel)
+    # The blend's regression member needs the unthresholded outcome.
+    panel = add_regression_target(panel)
 
     model, metrics, feats, calibrator = train(panel)
 

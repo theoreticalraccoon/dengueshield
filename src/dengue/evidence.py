@@ -103,7 +103,17 @@ def situation_freshness(root: Path = REPORTS) -> dict:
 
 @dataclass(frozen=True)
 class TaskScore:
-    """One of the four questions, its score, and the baseline it must beat."""
+    """One of the four questions, its score, and the baseline it must beat.
+
+    `secondary` exists because the four-row table was comparing the models on
+    different axes and quietly disadvantaging the outbreak ones. Screening and
+    complication were quoted on ROC-AUC; continuation and emergence on PR-AUC. Those
+    are not interchangeable - PR-AUC is bounded below by prevalence, so on a task
+    with 6.5% positives it starts near zero where ROC-AUC starts at 0.5 - and the
+    emergence model that reads as 0.405 on one reads as 0.827 on the other. Showing
+    a single number per row therefore made a presentation choice look like a finding.
+    Both are reported, and neither is dropped for being the less flattering one.
+    """
 
     question: str
     asked_of: str
@@ -111,13 +121,24 @@ class TaskScore:
     score: float | None
     baseline: float | None = None
     verdict: str = ""
+    secondary_metric: str = ""
+    secondary_score: float | None = None
 
     @property
     def known(self) -> bool:
         return self.score is not None
 
+    @property
+    def has_secondary(self) -> bool:
+        return bool(self.secondary_metric) and self.secondary_score is not None
+
     def format(self) -> str:
-        return "n/a" if self.score is None else f"{self.metric} {self.score:.3f}"
+        if self.score is None:
+            return "n/a"
+        out = f"{self.metric} {self.score:.3f}"
+        if self.has_secondary:
+            out += f" · {self.secondary_metric} {self.secondary_score:.3f}"
+        return out
 
 
 def _pick(rows, model: str, field: str):
@@ -169,6 +190,8 @@ def headline_metrics(root: Path = REPORTS) -> dict[str, TaskScore]:
             score=cont.get("pr_auc"),
             baseline=cont.get("baseline_persistence_pr_auc"),
             verdict="Strong",
+            secondary_metric="ROC-AUC",
+            secondary_score=cont.get("roc_auc"),
         ),
         "emergence": TaskScore(
             question="Will a new outbreak begin here?",
@@ -177,8 +200,104 @@ def headline_metrics(root: Path = REPORTS) -> dict[str, TaskScore]:
             score=emg.get("pr_auc"),
             baseline=emg.get("baseline_persistence_pr_auc"),
             verdict="Harder",
+            secondary_metric="ROC-AUC",
+            secondary_score=emg.get("roc_auc"),
         ),
     }
+
+
+@dataclass(frozen=True)
+class Delivered:
+    """One thing the model delivers, against what doing nothing would deliver.
+
+    The baseline is not decoration. Emergence reaches NPV 0.977 and 93.7% recall on
+    the locked years, and both are real - but a model that never flags anything
+    scores 0.935 NPV, so quoting the first without the second turns a modest gain
+    into a spectacular one. The pairing is the honesty, and it is enforced by the
+    type rather than left to whoever writes the page.
+    """
+
+    label: str
+    value: float
+    baseline: float | None
+    baseline_label: str
+    note: str = ""
+
+    @property
+    def beats_baseline(self) -> bool:
+        return self.baseline is None or self.value > self.baseline
+
+
+def emergence_delivery(root: Path = REPORTS) -> list[Delivered]:
+    """What the emergence model actually delivers at its deployed operating point.
+
+    Sourced from the artifact rather than typed into the page - the same reason
+    `headline_metrics` exists. Returns an empty list before the first retrain that
+    records these fields, so the app renders nothing rather than something stale.
+    """
+    m = emergence_metrics(root)
+    if not m:
+        return []
+
+    prevalence = m.get("prevalence")
+    out: list[Delivered] = []
+
+    if (roc := m.get("roc_auc")) is not None:
+        out.append(
+            Delivered(
+                "Ranking quality (ROC-AUC)",
+                float(roc),
+                0.5,
+                "coin flip",
+                "the axis the two clinical models are quoted on",
+            )
+        )
+    if (npv := m.get("npv")) is not None and m.get("trivial_npv") is not None:
+        out.append(
+            Delivered(
+                "A district called clear stays clear (NPV)",
+                float(npv),
+                float(m["trivial_npv"]),
+                "never flag anything",
+                "inflated by how rare emergence is - read it against the baseline",
+            )
+        )
+
+    # The highest-recall operating point that was actually measured, with its price.
+    ops = m.get("operating_points") or []
+    best = max(ops, key=lambda o: o.get("recall", 0.0)) if ops else None
+    if best:
+        total = m.get("districts_total")
+        price = f"{best['flagged_per_week']:.1f} districts flagged a week"
+        if total:
+            price += f" of {total}"
+        out.append(
+            Delivered(
+                "Emerging outbreaks caught, at maximum sensitivity",
+                float(best["recall"]),
+                0.0,
+                "never flag anything",
+                price,
+            )
+        )
+
+    if (pr := m.get("pr_auc")) is not None:
+        out.append(
+            Delivered(
+                "Precision-recall (PR-AUC)",
+                float(pr),
+                m.get("baseline_persistence_pr_auc"),
+                "persistence",
+                f"starts at {prevalence:.3f} by construction" if prevalence else "",
+            )
+        )
+    return out
+
+
+def emergence_budget(root: Path = REPORTS) -> pd.DataFrame | None:
+    """Recall against a fixed weekly inspection budget, if the retrain recorded it."""
+    rows = emergence_metrics(root).get("budget_points")
+    return pd.DataFrame(rows) if rows else None
 
 
 # ------------------------------------------------------------------ detail

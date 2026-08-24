@@ -40,9 +40,12 @@ __all__ = [
     "SEEDS",
     "Comparison",
     "SeedEnsemble",
+    "cluster_ci",
     "compare",
     "ece",
+    "fast_average_precision",
     "fit_predict_seeds",
+    "pooled_compare",
     "rolling_origin",
     "train_seed_ensemble",
 ]
@@ -167,7 +170,15 @@ def train_seed_ensemble(
 
 @dataclass(frozen=True)
 class Comparison:
-    """A paired per-fold comparison and whether it survives its own error bar."""
+    """A paired comparison and whether it survives its own error bar.
+
+    `unit` names what was resampled to build the interval, because the two
+    comparisons in this module resample different things and the distinction is
+    the point: `compare` resamples YEARS (do we still win on a differently-drawn
+    set of years?), `pooled_compare` resamples DISTRICTS (do we still win on a
+    differently-drawn set of districts?). A change that only survives one of them
+    has not been shown to generalise along the other axis.
+    """
 
     mean_delta: float
     ci_low: float
@@ -175,6 +186,7 @@ class Comparison:
     n_folds: int
     baseline_mean: float
     candidate_mean: float
+    unit: str = "folds"
 
     @property
     def significant(self) -> bool:
@@ -190,7 +202,7 @@ class Comparison:
         return (
             f"{self.baseline_mean:.4f} -> {self.candidate_mean:.4f}  "
             f"delta {self.mean_delta:+.4f} [{self.ci_low:+.4f}, {self.ci_high:+.4f}] "
-            f"over {self.n_folds} folds  {verdict}"
+            f"over {self.n_folds} {self.unit}  {verdict}"
         )
 
 
@@ -236,6 +248,150 @@ def compare(
         baseline_mean=float(a.mean()),
         candidate_mean=float(b.mean()),
     )
+
+
+def pooled_compare(
+    y,
+    groups,
+    baseline_p,
+    candidate_p,
+    *,
+    metric=None,
+    n_boot: int = 2_000,
+    alpha: float = 0.05,
+    seed: int = SEED,
+) -> Comparison:
+    """Compare two arms on POOLED out-of-fold predictions, resampling districts.
+
+    `compare` resamples folds, and with the eight to fourteen folds these panels
+    admit, that interval cannot resolve anything below about 0.05 - which is larger
+    than every effect that is still on the table. The limit is the number of folds,
+    and there is no way to manufacture more years.
+
+    So this is the second axis. Every fold's out-of-fold predictions are pooled into
+    one score per arm, and the interval comes from resampling the 26 DISTRICTS with
+    replacement. That is a cluster bootstrap: a district's weeks are strongly
+    autocorrelated, so a district - not a district-week - is the independent unit,
+    and resampling rows would treat 23,000 correlated observations as 23,000
+    independent ones and return an interval far too tight to be honest.
+
+    Neither axis subsumes the other. Years and districts are different ways for a
+    result to be a fluke, so the ship rule is that BOTH must agree in sign and the
+    pooled interval must exclude zero. That is stricter than either test alone, not
+    a way around the one that was failing.
+
+    `n_boot` defaults lower than `compare`'s 10,000 because each draw recomputes the
+    metric over the whole pooled set rather than averaging fourteen numbers.
+    """
+    if metric is None:
+        metric = fast_average_precision
+
+    y = np.asarray(y, dtype=float)
+    groups = np.asarray(groups)
+    a = np.asarray(baseline_p, dtype=float)
+    b = np.asarray(candidate_p, dtype=float)
+    if not (y.shape == groups.shape == a.shape == b.shape):
+        raise ValueError(
+            f"pooled comparison needs matching lengths: "
+            f"y={y.shape} groups={groups.shape} baseline={a.shape} candidate={b.shape}"
+        )
+    if y.size == 0:
+        raise ValueError("no rows to compare")
+
+    base_score = float(metric(y, a))
+    cand_score = float(metric(y, b))
+
+    unique = np.unique(groups)
+    # Precomputed once: the bootstrap draws groups thousands of times, and
+    # recomputing the membership mask each draw dominates the runtime otherwise.
+    members = [np.flatnonzero(groups == g) for g in unique]
+
+    rng = np.random.default_rng(seed)
+    deltas = []
+    for _ in range(n_boot):
+        picked = rng.integers(0, len(members), size=len(members))
+        idx = np.concatenate([members[i] for i in picked])
+        ys = y[idx]
+        # A draw that happens to contain one class only has no defined PR-AUC.
+        # Skip it rather than contribute a fabricated number to the interval.
+        if ys.min() == ys.max():
+            continue
+        deltas.append(float(metric(ys, b[idx])) - float(metric(ys, a[idx])))
+
+    if not deltas:
+        raise ValueError("every bootstrap draw was single-class; check the labels")
+
+    lo, hi = np.quantile(deltas, [alpha / 2, 1 - alpha / 2])
+    return Comparison(
+        mean_delta=cand_score - base_score,
+        ci_low=float(lo),
+        ci_high=float(hi),
+        n_folds=len(unique),
+        baseline_mean=base_score,
+        candidate_mean=cand_score,
+        unit="districts",
+    )
+
+
+def fast_average_precision(y: np.ndarray, s: np.ndarray) -> float:
+    """Average precision, without sklearn's per-call validation overhead.
+
+    The cluster bootstraps below evaluate this thousands of times on tens of
+    thousands of rows, and sklearn's input checking dominated the runtime - a single
+    six-arm search spent thirty of its thirty-five minutes here rather than in
+    LightGBM.
+
+    Identical to `average_precision_score` when no two scores are equal, which holds
+    for every caller here: these are raw model scores, and the one place ties used
+    to appear - isotonic calibration - is exactly what `TieBrokenIsotonic` removed.
+    `_check_matches_sklearn` in the tests pins the equivalence.
+    """
+    order = np.argsort(-s, kind="stable")
+    y = y[order]
+    tp = np.cumsum(y)
+    precision = tp / np.arange(1, y.size + 1)
+    positives = tp[-1]
+    return float((precision * y).sum() / positives) if positives else 0.0
+
+
+def cluster_ci(
+    y,
+    groups,
+    p,
+    *,
+    metric=None,
+    n_boot: int = 2_000,
+    alpha: float = 0.05,
+    seed: int = SEED,
+) -> tuple[float, float, float]:
+    """(score, lo, hi) for ONE arm, resampling districts.
+
+    The single-arm counterpart to `pooled_compare`, for reporting rather than
+    selecting: a headline figure quoted without an interval invites the reader to
+    treat 0.405 as exact when 175 positive events cannot support that.
+    """
+    if metric is None:
+        metric = fast_average_precision
+
+    y = np.asarray(y, dtype=float)
+    groups = np.asarray(groups)
+    p = np.asarray(p, dtype=float)
+
+    members = [np.flatnonzero(groups == g) for g in np.unique(groups)]
+    rng = np.random.default_rng(seed)
+    draws = []
+    for _ in range(n_boot):
+        picked = rng.integers(0, len(members), size=len(members))
+        idx = np.concatenate([members[i] for i in picked])
+        ys = y[idx]
+        if ys.min() == ys.max():
+            continue
+        draws.append(float(metric(ys, p[idx])))
+
+    if not draws:
+        raise ValueError("every bootstrap draw was single-class; check the labels")
+    lo, hi = np.quantile(draws, [alpha / 2, 1 - alpha / 2])
+    return float(metric(y, p)), float(lo), float(hi)
 
 
 def ece(y, p, n_bins: int = 15) -> float:

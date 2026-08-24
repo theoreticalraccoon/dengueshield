@@ -826,6 +826,10 @@ else:
                         "Question": t.question,
                         "Asked of": t.asked_of,
                         "Score": t.format(),
+                        # Never a score without the number it has to beat. PR-AUC
+                        # starts at the prevalence and ROC-AUC starts at 0.5, so a
+                        # bare figure is not comparable across these four rows.
+                        "Beats": "—" if t.baseline is None else f"{t.baseline:.3f}",
                         "Verdict": t.verdict,
                     }
                     for t in headline().values()
@@ -989,13 +993,68 @@ hospital preparedness raised""",
                 f"against {tn_hot:.1%} of true negatives. The model is following "
                 f"outbreaks that are subsiding.",
             )
-        finding(
-            "Accuracy is the wrong dial for emergence",
-            "Predicting no new outbreak every week scores 93.5% and catches nothing, "
-            "because outbreaks begin in only 6.5% of district-weeks. The deployed "
-            "model scores 79.2% and catches 74% of them"
-            + (f", at PR-AUC {emg.score:.3f}." if emg.known else "."),
-        )
+        # Every figure in this card used to be a string literal - 93.5%, 79.2%, 74% -
+        # sitting next to a sourced `emg.score`. A retrain moved the score and left
+        # the other three describing a model that no longer existed. They come from
+        # the artifact now, which is the whole reason `evidence` exists.
+        em = evidence.emergence_metrics()
+        if em:
+            finding(
+                "Accuracy is the wrong dial for emergence",
+                f"Predicting no new outbreak every week scores "
+                f"{em['trivial_never_flag_accuracy']:.1%} and catches nothing, because "
+                f"outbreaks begin in only {em['prevalence']:.1%} of district-weeks. The "
+                f"deployed model scores {em.get('accuracy', 0):.1%} and catches "
+                f"{em['recall']:.0%} of them"
+                + (f", at PR-AUC {emg.score:.3f}." if emg.known else "."),
+            )
+
+        # The other side of the same argument: having said what NOT to judge it on,
+        # say what it does deliver. Each figure carries the number a do-nothing model
+        # scores, because two of these are only impressive until you see that.
+        delivered = evidence.emergence_delivery()
+        if delivered:
+            st.markdown("##### What it does deliver")
+            st.dataframe(
+                pd.DataFrame(
+                    [
+                        {
+                            "Measure": d.label,
+                            "Model": f"{d.value:.3f}",
+                            "Doing nothing": "—" if d.baseline is None else f"{d.baseline:.3f}",
+                            "Note": d.note,
+                        }
+                        for d in delivered
+                    ]
+                ),
+                hide_index=True,
+                width="stretch",
+            )
+
+        budget = evidence.emergence_budget()
+        if budget is not None and not budget.empty:
+            st.markdown(
+                '<p class="note">Under a fixed weekly inspection budget - the '
+                "constraint a public-health team actually works under - districts are "
+                "ranked within each week rather than against one national threshold."
+                "</p>",
+                unsafe_allow_html=True,
+            )
+            f = px.line(
+                budget,
+                x="districts_per_week",
+                y="recall",
+                markers=True,
+                height=240,
+                labels={
+                    "districts_per_week": "Districts inspected per week",
+                    "recall": "Emerging outbreaks caught",
+                },
+            )
+            f.update_traces(line_color=ACCENT)
+            f.update_layout(**PLOT_LAYOUT)
+            f.update_yaxes(range=[0, 1], tickformat=".0%")
+            st.plotly_chart(f, width="stretch")
         finding(
             "Screening from a blood count is weak",
             "ROC-AUC 0.681. Good enough to decide who gets tested first, nowhere "

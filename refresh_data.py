@@ -226,6 +226,27 @@ def refresh_situation() -> None:
         log(f"  NDCU refresh failed ({type(e).__name__}: {str(e)[:80]}) - continuing")
 
 
+def refresh_enso() -> str | None:
+    """Top up the cached Nino 3.4 series from NOAA.
+
+    Fails soft for the same reason `refresh_situation` does, and more pointedly: the
+    forecast path must not acquire a dependency on a foreign agency's web server
+    being up on a Tuesday. The cached series is committed, so a failure here leaves
+    the model running on last week's ENSO values rather than on none.
+    """
+    log("\n[4b/5] ENSO index")
+    try:
+        from dengue.enso import fetch_nino34
+
+        df = fetch_nino34(force=True)
+        through = f"{int(df.year.iloc[-1])}-{int(df.month.iloc[-1]):02d}"
+        log(f"  nino3.4 covers through {through}")
+        return through
+    except Exception as e:
+        log(f"  ENSO refresh failed ({type(e).__name__}: {str(e)[:80]}) - continuing")
+        return None
+
+
 def write_freshness(**kw) -> None:
     REPORTS.mkdir(parents=True, exist_ok=True)
     FRESHNESS.write_text(json.dumps(kw, indent=2, default=str))
@@ -279,8 +300,10 @@ def main(check_only: bool) -> int:
     log(f"  weather covers through {pd.Timestamp(weather_to).date()}")
 
     refresh_situation()
+    enso_through = refresh_enso()
     info = rebuild_forecasts()
     write_freshness(
+        enso_through=enso_through,
         refreshed_at=now,
         latest_week=latest,
         age_days=age_days,

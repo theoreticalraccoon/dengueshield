@@ -48,10 +48,107 @@ from sklearn.metrics import average_precision_score, brier_score_loss
 from dengue.config import VAL_END
 from dengue.validation import SEEDS, ece, fit_predict_seeds, rolling_origin
 
-__all__ = ["CERTAINTY_CAP", "CalibrationReport", "apply_calibrator", "fit_isotonic_oof"]
+__all__ = [
+    "CERTAINTY_CAP",
+    "CalibrationReport",
+    "TieBrokenIsotonic",
+    "apply_calibrator",
+    "fit_isotonic_oof",
+    "fit_isotonic_oof_model",
+]
 
 # How close to 0 and 1 a calibrated forecast is allowed to get. See fit_isotonic_oof.
 CERTAINTY_CAP = 0.001
+
+
+class TieBrokenIsotonic:
+    """Isotonic calibration that keeps the raw score's ordering inside a step.
+
+    Isotonic regression is a step function: it maps whole intervals of raw score
+    onto one fitted value. That is what makes it calibrate well, and it is also
+    why the calibrated score RANKS worse than the raw one - every pair the
+    calibrator merges onto a step becomes a tie, and PR-AUC and ROC-AUC both charge
+    for ties. On the emergence model the cost was large and entirely avoidable:
+    PR-AUC 0.405 raw against 0.358 calibrated, and 0.358 is the number the app
+    served, because the app scores through the calibrator.
+
+    Two districts landing on the same step are not equally at risk; the model
+    ordered them and the calibrator threw that ordering away. So this adds back a
+    vanishing, strictly increasing function of the raw score:
+
+        q = iso(p) + eps * (0.5 + arctan((p - mid) / scale) / pi)
+
+    The added term is bounded by `eps`, which is set strictly below half the
+    smallest gap between distinct isotonic levels. No point can therefore reach the
+    next step, the mapping stays monotone, and every probability moves by at most
+    `eps` - a millionth, against an ECE of ~0.039. arctan rather than a clipped
+    linear ramp because it is strictly increasing over the whole real line, so a
+    test score outside the development range is still ordered rather than
+    saturating back into a tie.
+
+    The result restores the calibrated score's ranking to exactly the raw model's,
+    which is the most the calibrator could honestly leave intact. It cannot IMPROVE
+    on the raw ranking - that would mean the calibrator had seen labels it should
+    not have - so the module's one-sided invariant still holds, now at equality.
+
+    One reported figure moves for a reason that is worth knowing before reading it
+    as a regression. `ece` bins by equal COUNT, and its edges come from
+    `np.unique(np.quantile(p, ...))`: a heavily tied score collapses those edges,
+    so ECE was previously averaged over far fewer than the requested 15 bins.
+    Breaking the ties restores the full bin count, and the measured ECE therefore
+    changes even though every probability moved by at most `eps`. The calibration
+    did not get worse; it is being measured at the resolution that was asked for.
+    """
+
+    def __init__(self, iso: IsotonicRegression, p_fit: np.ndarray, eps: float | None = None):
+        self.iso = iso
+        p_fit = np.asarray(p_fit, dtype=float)
+
+        # Centre and scale of the tie-break ramp: the median and half the
+        # interquartile range put most of the development scores on the steep part
+        # of the arctan, where it separates them best.
+        q1, mid, q3 = np.quantile(p_fit, [0.25, 0.5, 0.75])
+        self.mid = float(mid)
+        self.scale = float(max(q3 - q1, 1e-12) / 2.0)
+
+        if eps is None:
+            eps = self._epsilon_for(iso, p_fit)
+        self.eps = float(eps)
+
+    # Never perturb a probability by more than this: seven orders below the ECE
+    # being reported, so no rounded figure anywhere can move.
+    MAX_EPS = 1e-6
+    # ...and never by less than this, or the nudge disappears into float64.
+    MIN_EPS = 1e-9
+    # Two isotonic levels closer together than this are the same probability.
+    LEVEL_TOLERANCE = 1e-9
+
+    @classmethod
+    def _epsilon_for(cls, iso: IsotonicRegression, p_fit: np.ndarray) -> float:
+        """How far a point may be nudged without reaching the next isotonic step.
+
+        The obvious rule - half the smallest gap between fitted levels - is wrong,
+        and wrong in a way that silently does nothing. Isotonic routinely emits
+        adjacent levels separated by 1e-16, which is float noise rather than a step,
+        and half of that is below `np.spacing` at the values involved. The nudge is
+        then added and rounds straight back off: on the first real run this produced
+        eps = 1.1e-16 against a required resolution of 1.1e-16, every tie survived,
+        and the calibrated PR-AUC stayed 0.037 below the raw one exactly as before.
+
+        So gaps below `LEVEL_TOLERANCE` are not treated as steps at all - crossing
+        one changes the reported probability in its tenth decimal - and the result
+        is floored so it always survives the arithmetic.
+        """
+        levels = np.unique(iso.predict(np.asarray(p_fit, dtype=float)))
+        gaps = np.diff(levels)
+        real = gaps[gaps > cls.LEVEL_TOLERANCE]
+        smallest = float(real.min()) if real.size else cls.MAX_EPS * 2
+        return float(np.clip(smallest / 2.0, cls.MIN_EPS, cls.MAX_EPS))
+
+    def predict(self, p):
+        p = np.asarray(p, dtype=float)
+        ramp = 0.5 + np.arctan((p - self.mid) / self.scale) / np.pi
+        return np.clip(self.iso.predict(p) + self.eps * ramp, 0.0, 1.0)
 
 
 @dataclass(frozen=True)
@@ -98,7 +195,7 @@ def fit_isotonic_oof(
     label_col: str = "y",
     seeds=SEEDS,
     pos_weight_fn=None,
-) -> tuple[IsotonicRegression, CalibrationReport]:
+) -> tuple[TieBrokenIsotonic, CalibrationReport]:
     """Isotonic calibrator fitted on rolling-origin out-of-fold predictions.
 
     `dev` must be the development frame only - training plus validation years. The
@@ -150,7 +247,12 @@ def fit_isotonic_oof(
     iso = IsotonicRegression(
         out_of_bounds="clip", y_min=CERTAINTY_CAP, y_max=1.0 - CERTAINTY_CAP
     ).fit(p, y)
-    q = iso.predict(p)
+
+    # Wrapped so the calibrated score keeps the model's ordering within each
+    # isotonic step - see TieBrokenIsotonic. Without this the deployed score ranks
+    # measurably worse than the model that was measured.
+    calibrator = TieBrokenIsotonic(iso, p)
+    q = calibrator.predict(p)
 
     report = CalibrationReport(
         ece_raw=ece(y, p),
@@ -161,7 +263,56 @@ def fit_isotonic_oof(
         pr_auc_calibrated=float(average_precision_score(y, q)),
         n=len(y),
     )
-    return iso, report
+    return calibrator, report
+
+
+def fit_isotonic_oof_model(
+    fit_fn,
+    dev: pd.DataFrame,
+    features: list[str],
+    *,
+    first_test_year: int,
+    last_test_year: int = VAL_END,
+    label_col: str = "y",
+) -> tuple[TieBrokenIsotonic, CalibrationReport]:
+    """`fit_isotonic_oof` for an estimator this module cannot build itself.
+
+    The emergence model is now two boosters and a bridge rather than one parameter
+    dict (see `dengue.blend`), so the caller supplies `fit_fn(train) -> estimator`
+    and this keeps the part that matters: every out-of-fold prediction comes from a
+    model that had not seen the row, and the fitted mapping spans the same years the
+    production model is trained on.
+    """
+    oof_p, oof_y = [], []
+    for _year, train, test in rolling_origin(
+        dev, first_test_year=first_test_year, last_test_year=last_test_year
+    ):
+        model = fit_fn(train)
+        oof_p.append(np.asarray(model.predict(test[features]), dtype=float))
+        oof_y.append(test[label_col].to_numpy(dtype=float))
+
+    if not oof_p:
+        raise ValueError("no out-of-fold predictions; check first_test_year against the panel")
+
+    p = np.concatenate(oof_p)
+    y = np.concatenate(oof_y)
+
+    iso = IsotonicRegression(
+        out_of_bounds="clip", y_min=CERTAINTY_CAP, y_max=1.0 - CERTAINTY_CAP
+    ).fit(p, y)
+    calibrator = TieBrokenIsotonic(iso, p)
+    q = calibrator.predict(p)
+
+    report = CalibrationReport(
+        ece_raw=ece(y, p),
+        ece_calibrated=ece(y, q),
+        brier_raw=float(brier_score_loss(y, np.clip(p, 0, 1))),
+        brier_calibrated=float(brier_score_loss(y, np.clip(q, 0, 1))),
+        pr_auc_raw=float(average_precision_score(y, p)),
+        pr_auc_calibrated=float(average_precision_score(y, q)),
+        n=len(y),
+    )
+    return calibrator, report
 
 
 def apply_calibrator(calibrator, p):
