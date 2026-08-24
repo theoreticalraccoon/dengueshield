@@ -173,28 +173,53 @@ PLOT_LAYOUT = {
 }
 
 
+# Every loader below is keyed on this. Streamlit caches on argument values, so a
+# no-argument cached function has a constant key and never reloads for the life of
+# the process - which meant a retrain rewrote the artifacts and the running
+# dashboard kept serving the numbers it read at startup. See
+# evidence.artifact_version.
+def _version():
+    return evidence.artifact_version()
+
+
 @st.cache_resource
-def load_models():
+def _load_models(version):
     """Every saved model behind one interface. Absent artifacts load as None."""
     return predictor.load_all()
 
 
 @st.cache_data
-def forecasts():
+def _forecasts(version):
     """The district dual-risk table. None when no forecast has been produced."""
     return evidence.forecasts()
 
 
 @st.cache_data
-def history():
+def _history(version):
     """District case + rainfall series - the only artifact big enough to cache."""
     return evidence.history()
 
 
 @st.cache_data
-def headline():
+def _headline(version):
     """The four task scores, read from reports/ rather than restated here."""
     return evidence.headline_metrics()
+
+
+def load_models():
+    return _load_models(_version())
+
+
+def forecasts():
+    return _forecasts(_version())
+
+
+def history():
+    return _history(_version())
+
+
+def headline():
+    return _headline(_version())
 
 
 M = load_models()

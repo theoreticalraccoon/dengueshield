@@ -24,7 +24,43 @@ from pathlib import Path
 
 import pandas as pd
 
-from dengue.config import PROC, REPORTS
+from dengue.config import MODELS, PROC, REPORTS
+
+# ------------------------------------------------------------------ freshness
+
+
+def artifact_version(
+    models: Path = MODELS, reports: Path = REPORTS, proc: Path = PROC
+) -> tuple[tuple[str, int], ...]:
+    """A key that changes whenever anything the app reads changes on disk.
+
+    Streamlit caches on the value of a function's arguments, and every cached
+    loader in app.py took none - so the key was constant and the cache never
+    expired for the life of the process. Retraining rewrote the artifacts and the
+    running dashboard went on serving what it had read at startup.
+
+    That is invisible in production, where a push restarts the app and clears the
+    cache with it, and very visible locally: the emergence column sat at its old
+    values through four retrains. Passing this to the cached loaders makes a
+    changed file invalidate them, which is what the weekly refresh needs too -
+    `refresh_data.py` rewrites these while the app may be running.
+
+    Deliberately one key for all of them rather than one per loader. The files
+    change together (a retrain rewrites the bundle and the forecast in the same
+    run), so splitting it would buy nothing and add a way for the two to disagree.
+    """
+    roots = ((models, "*.joblib"), (reports, "*"), (proc, "*.parquet"))
+    out: list[tuple[str, int]] = []
+    for root, pattern in roots:
+        if not root.exists():
+            continue
+        out.extend(
+            (path.name, path.stat().st_mtime_ns)
+            for path in sorted(root.glob(pattern))
+            if path.is_file()
+        )
+    return tuple(out)
+
 
 # ------------------------------------------------------------------ raw reads
 
