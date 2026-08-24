@@ -67,7 +67,7 @@ from dengue.metrics import (
     threshold_for_sensitivity,
 )
 from dengue.srilanka import COMMON_FEATURES, DISTRICTS, build_panel
-from dengue.validation import cluster_ci, ece, pooled_compare
+from dengue.validation import SEEDS, cluster_ci, ece, pooled_compare
 
 # Emergence needs far shallower trees than continuation: ~18k eligible training
 # rows at ~4% positives. Selected by rolling-origin CV over seven folds ending
@@ -85,11 +85,17 @@ ROUNDS = 600
 # First fold of the out-of-fold calibration sweep, matching finalize_srilanka.py.
 CALIBRATION_FIRST_YEAR = 2016
 
-# Nine rather than three. Averaging more draws of the same estimator is variance
-# reduction, not model selection - there is nothing here to choose wrong - and the
-# seed spread on this task is the noise floor everything else is measured against.
-# Two members now, so this is eighteen boosters, which still fits in seconds.
-DEPLOY_SEEDS = tuple(SEED + i for i in range(9))
+# The project default, deliberately not more.
+#
+# Raising this to nine looked free - averaging more draws of one estimator is
+# variance reduction, not selection, so it cannot be chosen wrong - but it was
+# measured before being kept, and it buys nothing: over the development folds the
+# blend scores 0.3824 at three seeds, 0.3799 at five and 0.3816 at nine, a spread
+# of 0.0025 that is the noise it was supposed to remove. What it does cost is real.
+# The blend already doubles the artifact because it holds two members, and CI
+# commits this bundle every Tuesday, so nine seeds meant a 9 MB file landing in git
+# history weekly instead of 3 MB.
+DEPLOY_SEEDS = SEEDS
 
 
 def _fit(train_rows: pd.DataFrame, feats: list[str]):
