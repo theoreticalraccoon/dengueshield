@@ -103,4 +103,7 @@ reports/*
 !reports/srilanka_latest_situation.csv
 !reports/srilanka_situation_history.csv
 !reports/srilanka_transfer.csv
-requirements-dev.txt
+
+# requirements-dev.txt was excluded here, which was invisible until the test
+# workflow tried to install it and failed on a clean runner. It declares what CI
+# needs to run the suite, so it has to travel with the suite.

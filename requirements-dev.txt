@@ -1,0 +1,5 @@
+# Test dependencies. Deliberately separate from requirements-refresh.txt: the
+# weekly CI refresh job installs that one and should not pull a test runner.
+-r requirements-refresh.txt
+pytest>=8.0
+ruff>=0.6
