@@ -48,9 +48,21 @@ def _npy(name):
 
 
 def _screening_labels():
+    """The screening cohort's labels, or a skip when the raw dataset is absent.
+
+    This file already skips whenever a MODEL artifact is missing; the raw clinical
+    cohort needed the same treatment and did not have it. `data/raw/` is not in the
+    repo - the patient-level datasets are deliberately not published - so the tests
+    built on it passed on a developer machine and failed on the first clean
+    checkout, which is exactly the class of failure CI exists to catch and a poor
+    way to find out.
+    """
     from dengue.datasets import load_hematology_1523
 
-    return load_hematology_1523()[1]
+    try:
+        return load_hematology_1523()[1]
+    except FileNotFoundError as missing:
+        pytest.skip(f"screening cohort not present in this checkout ({missing.filename})")
 
 
 # ------------------------------------------------------------------ screening
