@@ -18,7 +18,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import duckdb
 import numpy as np
 import pandas as pd
 
@@ -184,6 +183,13 @@ def load_panel(
         *DYNAMIC,
         *STATIC,
     ]
+    # Imported here rather than at module scope. duckdb is a training-only
+    # dependency and is deliberately absent from the runtime and CI installs, but
+    # `dengue.experiment` imports this module for its split and class-weight logic,
+    # which touches no parquet at all. A module-level import made that logic
+    # unreachable - and its tests uncollectable - anywhere duckdb is not installed.
+    import duckdb
+
     con = duckdb.connect()
     avail = {r[0] for r in con.execute(f"DESCRIBE SELECT * FROM '{path.as_posix()}'").fetchall()}
     cols = [c for c in dict.fromkeys(cols) if c in avail]

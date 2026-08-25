@@ -18,13 +18,19 @@ _fix_code.py
 
 # ---------------------------------------------------------------- local only
 frozen/
-tests/
-docs/
-experiments/
 REPORT.md
 CONTEXT.md
 CLAUDE.md
 pyrightconfig.json
+
+# tests/, docs/ and experiments/ used to sit in the list above. They are tracked
+# now, for a reason that showed up in practice: nothing guarded the artifacts the
+# dashboard serves. The weekly refresh regenerates and commits the model bundles
+# every Tuesday, and with the suite untracked CI could not run a single check
+# against them - the first sign of a bad artifact would have been a broken
+# dashboard. docs/adr carries the reasoning behind the model decisions, and the
+# ADRs cite experiments/ by path as their evidence, so all three travel together
+# or none of them are much use.
 
 # The pipeline that produced the models. Rebuilding any of it needs the 565 MB
 # Brazil parquet, which is not in the repo either.
@@ -46,7 +52,6 @@ verify_fixes.py
 freeze_v2.py
 fetch_full.py
 derive_reports.py
-summarise_improvements.py
 
 # ---------------------------------------------------------------- data
 # Raw datasets are downloaded by the pipeline. The two Sri Lanka inputs travel

@@ -67,6 +67,7 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A data/raw/srilanka_weekly_district.csv \
                      data/raw/srilanka_weather_daily.parquet \
+                     data/raw/enso_nino34.csv \
                      reports/ models/srilanka_outbreak.joblib \
                      models/srilanka_emergence.joblib \
                      data/processed/srilanka_history.parquet

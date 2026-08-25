@@ -1,0 +1,87 @@
+{
+  "protocol": "rolling-origin 2010..validation, 5 seeds, paired over folds AND clustered over districts; both must exclude zero. Regression scores are mapped to probabilities by an isotonic fitted on the training fold, so pooling across folds is meaningful.",
+  "n_folds": 14,
+  "baseline": {
+    "per_fold_mean": 0.3609907626217018,
+    "pooled_pr_auc": 0.340198378497702,
+    "pooled_roc_auc": 0.8833760194818382
+  },
+  "arms": [
+    {
+      "arm": "R1p regression as probability",
+      "kind": "regression",
+      "n_features": 41,
+      "per_fold_mean": 0.3729984124819578,
+      "per_fold_delta": 0.012007649860256046,
+      "per_fold_ci": [
+        -0.02134047142781725,
+        0.04906957803736094
+      ],
+      "pooled_pr_auc": 0.3577030134470932,
+      "pooled_delta": 0.017504634949391196,
+      "pooled_ci": [
+        -0.009619431380313582,
+        0.047457743434136966
+      ],
+      "pooled_roc_auc": 0.8861062380426438,
+      "ships": false
+    },
+    {
+      "arm": "BLp blend",
+      "kind": "blend",
+      "n_features": 41,
+      "per_fold_mean": 0.39468782922677675,
+      "per_fold_delta": 0.033697066605074925,
+      "per_fold_ci": [
+        0.006680816726958725,
+        0.0670701070226134
+      ],
+      "pooled_pr_auc": 0.3639091052184722,
+      "pooled_delta": 0.02371072672077018,
+      "pooled_ci": [
+        0.0049537047283358315,
+        0.04618885514157517
+      ],
+      "pooled_roc_auc": 0.889656738109425,
+      "ships": true
+    },
+    {
+      "arm": "BLp+C blend + climate core",
+      "kind": "blend",
+      "n_features": 49,
+      "per_fold_mean": 0.39711559372387806,
+      "per_fold_delta": 0.03612483110217627,
+      "per_fold_ci": [
+        0.0004883844710206831,
+        0.0830289034138509
+      ],
+      "pooled_pr_auc": 0.36195535972113807,
+      "pooled_delta": 0.021756981223436056,
+      "pooled_ci": [
+        0.0032445236421958,
+        0.043140454644777546
+      ],
+      "pooled_roc_auc": 0.8939741937608595,
+      "ships": true
+    },
+    {
+      "arm": "BLp+CE blend + climate + enso",
+      "kind": "blend",
+      "n_features": 56,
+      "per_fold_mean": 0.3961965707382914,
+      "per_fold_delta": 0.03520580811658959,
+      "per_fold_ci": [
+        -0.00456156577400179,
+        0.07698311007478387
+      ],
+      "pooled_pr_auc": 0.38947535474237177,
+      "pooled_delta": 0.04927697624466976,
+      "pooled_ci": [
+        0.022331291168881957,
+        0.08068335206734685
+      ],
+      "pooled_roc_auc": 0.8953402369119361,
+      "ships": false
+    }
+  ]
+}

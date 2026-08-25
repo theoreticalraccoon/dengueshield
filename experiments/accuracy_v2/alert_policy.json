@@ -1,0 +1,102 @@
+{
+  "protocol": "out-of-fold predictions, rolling-origin 2010..validation, 5 seeds. Development years only.",
+  "n_weeks": 729,
+  "target_recall": 0.9,
+  "cheapest_global": {
+    "alerts_per_week": 7.9437585733882035,
+    "recall": 0.9028436018957346,
+    "precision": 0.13158349162493524
+  },
+  "cheapest_top_k": {
+    "k": 11,
+    "alerts_per_week": 10.799725651577504,
+    "recall": 0.9087677725118484,
+    "precision": 0.0974215673821923
+  },
+  "top_k_curve": [
+    {
+      "k": 1,
+      "alerts_per_week": 1.0,
+      "recall": 0.22274881516587677,
+      "precision": 0.2578875171467764
+    },
+    {
+      "k": 2,
+      "alerts_per_week": 1.9986282578875172,
+      "recall": 0.38507109004739337,
+      "precision": 0.2230610844200412
+    },
+    {
+      "k": 3,
+      "alerts_per_week": 2.9945130315500688,
+      "recall": 0.5,
+      "precision": 0.19331195602382042
+    },
+    {
+      "k": 4,
+      "alerts_per_week": 3.9876543209876543,
+      "recall": 0.5864928909952607,
+      "precision": 0.17027863777089783
+    },
+    {
+      "k": 5,
+      "alerts_per_week": 4.98079561042524,
+      "recall": 0.6635071090047393,
+      "precision": 0.15422748554117324
+    },
+    {
+      "k": 6,
+      "alerts_per_week": 5.973936899862826,
+      "recall": 0.726303317535545,
+      "precision": 0.14075774971297358
+    },
+    {
+      "k": 7,
+      "alerts_per_week": 6.960219478737997,
+      "recall": 0.7784360189573459,
+      "precision": 0.12948364209696492
+    },
+    {
+      "k": 8,
+      "alerts_per_week": 7.9300411522633745,
+      "recall": 0.8210900473933649,
+      "precision": 0.11987545407368967
+    },
+    {
+      "k": 9,
+      "alerts_per_week": 8.891632373113854,
+      "recall": 0.8483412322274881,
+      "precision": 0.11045973464979944
+    },
+    {
+      "k": 10,
+      "alerts_per_week": 9.849108367626886,
+      "recall": 0.8803317535545023,
+      "precision": 0.10348189415041782
+    },
+    {
+      "k": 11,
+      "alerts_per_week": 10.799725651577504,
+      "recall": 0.9087677725118484,
+      "precision": 0.0974215673821923
+    },
+    {
+      "k": 12,
+      "alerts_per_week": 11.746227709190672,
+      "recall": 0.9372037914691943,
+      "precision": 0.0923741679317996
+    },
+    {
+      "k": 13,
+      "alerts_per_week": 12.683127572016462,
+      "recall": 0.9466824644549763,
+      "precision": 0.08641574735020549
+    },
+    {
+      "k": 14,
+      "alerts_per_week": 13.609053497942387,
+      "recall": 0.95260663507109,
+      "precision": 0.0810402177199879
+    }
+  ]
+}

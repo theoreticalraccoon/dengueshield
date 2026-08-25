@@ -1,0 +1,182 @@
+{
+  "protocol": "rolling-origin 2010..validation, 5 seeds, paired bootstrap over folds AND cluster bootstrap over districts; ships only if both exclude zero in the same direction",
+  "n_folds": 14,
+  "baseline": {
+    "per_fold_mean": 0.3609907626217018,
+    "pooled_pr_auc": 0.340198378497702,
+    "pooled_roc_auc": 0.8833760194818382
+  },
+  "arms": [
+    {
+      "arm": "R1 regression (log incidence)",
+      "kind": "regression",
+      "n_features": 41,
+      "per_fold_mean": 0.38021779656302984,
+      "per_fold_delta": 0.019227033941328023,
+      "per_fold_ci": [
+        -0.015879860777048553,
+        0.059160836129483044
+      ],
+      "pooled_pr_auc": 0.361890486521777,
+      "pooled_delta": 0.021692108024075007,
+      "pooled_ci": [
+        -0.00964685257740413,
+        0.05758865012159914
+      ],
+      "pooled_roc_auc": 0.8875471814334617,
+      "ships": false
+    },
+    {
+      "arm": "R2 tweedie",
+      "kind": "tweedie",
+      "n_features": 41,
+      "per_fold_mean": 0.35704854714487044,
+      "per_fold_delta": -0.003942215476831329,
+      "per_fold_ci": [
+        -0.03267457866544015,
+        0.023150477705809108
+      ],
+      "pooled_pr_auc": 0.338183200070941,
+      "pooled_delta": -0.0020151784267610218,
+      "pooled_ci": [
+        -0.031401808221409866,
+        0.035227886175347
+      ],
+      "pooled_roc_auc": 0.8904776294901263,
+      "ships": false
+    },
+    {
+      "arm": "Q95 quantile 0.95",
+      "kind": "quantile",
+      "n_features": 41,
+      "per_fold_mean": 0.3233355675555073,
+      "per_fold_delta": -0.037655195066194476,
+      "per_fold_ci": [
+        -0.09727731276516413,
+        0.005814717980066689
+      ],
+      "pooled_pr_auc": 0.3310411693765991,
+      "pooled_delta": -0.009157209121102905,
+      "pooled_ci": [
+        -0.044867437523934926,
+        0.032160151297876104
+      ],
+      "pooled_roc_auc": 0.893259420582418,
+      "ships": false
+    },
+    {
+      "arm": "BL blend of A and R1",
+      "kind": "blend",
+      "n_features": 41,
+      "per_fold_mean": 0.3881562003450037,
+      "per_fold_delta": 0.02716543772330186,
+      "per_fold_ci": [
+        0.00333740839842351,
+        0.05612489305470636
+      ],
+      "pooled_pr_auc": 0.2733433723042977,
+      "pooled_delta": -0.06685500619340429,
+      "pooled_ci": [
+        -0.10105202818725885,
+        -0.03391618541166202
+      ],
+      "pooled_roc_auc": 0.8259288697008746,
+      "ships": false
+    },
+    {
+      "arm": "CA climate anomalies only",
+      "kind": "binary",
+      "n_features": 44,
+      "per_fold_mean": 0.3681955155029776,
+      "per_fold_delta": 0.007204752881275793,
+      "per_fold_ci": [
+        -0.011257552610013646,
+        0.031177140090852252
+      ],
+      "pooled_pr_auc": 0.33355098664673277,
+      "pooled_delta": -0.006647391850969242,
+      "pooled_ci": [
+        -0.015556662189358448,
+        0.0019052803783837517
+      ],
+      "pooled_roc_auc": 0.883520559791813,
+      "ships": false
+    },
+    {
+      "arm": "CC climate core",
+      "kind": "binary",
+      "n_features": 49,
+      "per_fold_mean": 0.3716675712000714,
+      "per_fold_delta": 0.01067680857836962,
+      "per_fold_ci": [
+        -0.01772145076136898,
+        0.04882561883483346
+      ],
+      "pooled_pr_auc": 0.33344552959780277,
+      "pooled_delta": -0.006752848899899244,
+      "pooled_ci": [
+        -0.023891545337426344,
+        0.012433789370140924
+      ],
+      "pooled_roc_auc": 0.8888435463971346,
+      "ships": false
+    },
+    {
+      "arm": "EN enso",
+      "kind": "binary",
+      "n_features": 48,
+      "per_fold_mean": 0.37647288164432224,
+      "per_fold_delta": 0.015482119022620455,
+      "per_fold_ci": [
+        -0.013023389320540845,
+        0.043328797807827744
+      ],
+      "pooled_pr_auc": 0.3528371921755663,
+      "pooled_delta": 0.012638813677864291,
+      "pooled_ci": [
+        -0.012837673195038335,
+        0.04111093635919391
+      ],
+      "pooled_roc_auc": 0.884573203568255,
+      "ships": false
+    },
+    {
+      "arm": "CE climate core + enso",
+      "kind": "binary",
+      "n_features": 56,
+      "per_fold_mean": 0.37663440925243424,
+      "per_fold_delta": 0.0156436466307324,
+      "per_fold_ci": [
+        -0.014526234557746527,
+        0.050820379291017986
+      ],
+      "pooled_pr_auc": 0.3466115532300501,
+      "pooled_delta": 0.0064131747323480925,
+      "pooled_ci": [
+        -0.01509977491489011,
+        0.03149064013892883
+      ],
+      "pooled_roc_auc": 0.888776688880337,
+      "ships": false
+    },
+    {
+      "arm": "XX all climate",
+      "kind": "binary",
+      "n_features": 54,
+      "per_fold_mean": 0.38163227120284315,
+      "per_fold_delta": 0.020641508581141388,
+      "per_fold_ci": [
+        -0.013400319399954138,
+        0.06283263388154081
+      ],
+      "pooled_pr_auc": 0.3504425462217767,
+      "pooled_delta": 0.01024416772407466,
+      "pooled_ci": [
+        -0.012239669963903297,
+        0.03555600185855066
+      ],
+      "pooled_roc_auc": 0.8919047363481066,
+      "ships": false
+    }
+  ]
+}

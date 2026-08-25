@@ -1,0 +1,119 @@
+{
+  "protocol": "rolling-origin 2010..validation, 5 seeds, paired bootstrap over folds AND cluster bootstrap over districts; an arm ships only if both intervals exclude zero in the same direction",
+  "n_folds": 14,
+  "baseline": {
+    "per_fold_mean": 0.3609907626217018,
+    "pooled_pr_auc": 0.34019837849770207,
+    "pooled_roc_auc": 0.8833760194818382
+  },
+  "arms": [
+    {
+      "arm": "all",
+      "blocks": [
+        "climate",
+        "susceptible",
+        "importation",
+        "national"
+      ],
+      "n_features": 65,
+      "per_fold_mean": 0.35784417133080143,
+      "per_fold_delta": -0.0031465912909004407,
+      "per_fold_ci": [
+        -0.031203377847682602,
+        0.020177762669665963
+      ],
+      "pooled_pr_auc": 0.34274290461303836,
+      "pooled_delta": 0.0025445261153362875,
+      "pooled_ci": [
+        -0.02016774361612749,
+        0.027098702519138075
+      ],
+      "pooled_roc_auc": 0.8906592959240242,
+      "ships": false
+    },
+    {
+      "arm": "climate",
+      "blocks": [
+        "climate"
+      ],
+      "n_features": 54,
+      "per_fold_mean": 0.38163227120284315,
+      "per_fold_delta": 0.020641508581141423,
+      "per_fold_ci": [
+        -0.013400319399954123,
+        0.06283263388154084
+      ],
+      "pooled_pr_auc": 0.3504425462217766,
+      "pooled_delta": 0.010244167724074549,
+      "pooled_ci": [
+        -0.012158113432082982,
+        0.03535415890724202
+      ],
+      "pooled_roc_auc": 0.8919047363481066,
+      "ships": false
+    },
+    {
+      "arm": "susceptible",
+      "blocks": [
+        "susceptible"
+      ],
+      "n_features": 44,
+      "per_fold_mean": 0.3568727275411568,
+      "per_fold_delta": -0.004118035080545007,
+      "per_fold_ci": [
+        -0.022782907976194647,
+        0.013806406789098455
+      ],
+      "pooled_pr_auc": 0.3380386519988426,
+      "pooled_delta": -0.002159726498859482,
+      "pooled_ci": [
+        -0.018341970396674297,
+        0.013191875245873482
+      ],
+      "pooled_roc_auc": 0.8811661384135084,
+      "ships": false
+    },
+    {
+      "arm": "importation",
+      "blocks": [
+        "importation"
+      ],
+      "n_features": 45,
+      "per_fold_mean": 0.34079637226999876,
+      "per_fold_delta": -0.020194390351703045,
+      "per_fold_ci": [
+        -0.04419703391069872,
+        -0.00043403577796032045
+      ],
+      "pooled_pr_auc": 0.3364713792057302,
+      "pooled_delta": -0.003726999291971844,
+      "pooled_ci": [
+        -0.018851839653667074,
+        0.012052946821492619
+      ],
+      "pooled_roc_auc": 0.8847302463101054,
+      "ships": false
+    },
+    {
+      "arm": "national",
+      "blocks": [
+        "national"
+      ],
+      "n_features": 45,
+      "per_fold_mean": 0.35094977824910656,
+      "per_fold_delta": -0.01004098437259529,
+      "per_fold_ci": [
+        -0.036239909453504505,
+        0.009375401584002366
+      ],
+      "pooled_pr_auc": 0.34396758399529903,
+      "pooled_delta": 0.0037692054975969613,
+      "pooled_ci": [
+        -0.007507836526396557,
+        0.016291469068239674
+      ],
+      "pooled_roc_auc": 0.8891287390657084,
+      "ships": false
+    }
+  ]
+}

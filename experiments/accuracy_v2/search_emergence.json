@@ -1,0 +1,39 @@
+{
+  "protocol": "rolling-origin 2016..validation, 3 seeds, paired bootstrap",
+  "production_mean": 0.39181221891046414,
+  "arms": [
+    {
+      "arm": "B",
+      "label": "B +ineligible rows as context",
+      "baseline_mean": 0.39181221891046414,
+      "candidate_mean": 0.39902098928989926,
+      "delta": 0.007208770379435181,
+      "ci_low": -0.005127313344365218,
+      "ci_high": 0.023731382940464965,
+      "n_folds": 8,
+      "ships": false
+    },
+    {
+      "arm": "C",
+      "label": "C discrete-time hazard",
+      "baseline_mean": 0.39181221891046414,
+      "candidate_mean": 0.38870569088395385,
+      "delta": -0.0031065280265102704,
+      "ci_low": -0.019267220883195636,
+      "ci_high": 0.01099682463437192,
+      "n_folds": 8,
+      "ships": false
+    },
+    {
+      "arm": "D",
+      "label": "D hazard + ineligible rows",
+      "baseline_mean": 0.39181221891046414,
+      "candidate_mean": 0.39199735424005955,
+      "delta": 0.00018513532959544415,
+      "ci_low": -0.02525426934158271,
+      "ci_high": 0.02396101187624746,
+      "n_folds": 8,
+      "ships": false
+    }
+  ]
+}

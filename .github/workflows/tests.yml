@@ -1,0 +1,76 @@
+name: Tests
+
+# Guards the artifacts the dashboard actually serves.
+#
+# The weekly refresh job regenerates and commits models/srilanka_*.joblib and the
+# whole of reports/ every Tuesday, unattended. Nothing checked those commits, so
+# the first sign of a bad artifact would have been a broken dashboard - which is
+# how a startup crash reached production once already. This runs the suite on
+# every push, including the refresh job's own commits.
+#
+# tests/test_shipped_models.py is the part that matters most here: it loads the
+# committed bundles and asserts the invariants that cannot be recovered after the
+# fact, notably that calibration has not improved a ranking metric (which would
+# mean the calibrator saw labels it should not have).
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  # A refresh commit landing while an earlier run is still going should supersede
+  # it; nothing here writes, so cancelling is safe.
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements-dev.txt
+
+      - name: Confirm the runtime can read the committed models
+        # Called out separately from the suite because it is the specific failure
+        # that took the deployed app down: the bundles are numpy 2 pickles, and a
+        # stack that resolves numpy 1.x cannot read them at all. Failing here names
+        # the cause; failing inside the suite would only show a load error.
+        run: |
+          python - <<'PY'
+          import sys
+          sys.path.insert(0, "src")
+          import numpy as np
+          from dengue import predictor
+
+          # int(), not a string compare: "10" >= "2" is False lexically.
+          assert int(np.__version__.split(".")[0]) >= 2, (
+              f"numpy {np.__version__} cannot read the saved bundles; "
+              "requirements.txt requires >=2.0"
+          )
+          loaded = predictor.load_all()
+          if predictor.LOAD_ERRORS:
+              for name, why in sorted(predictor.LOAD_ERRORS.items()):
+                  print(f"::error::{name} failed to load - {why}")
+              sys.exit(1)
+          print(f"loaded: {sorted(n for n, p in loaded.items() if p is not None)}")
+          PY
+
+      - name: Lint
+        run: ruff check .
+
+      - name: Tests
+        run: pytest tests/ -q
