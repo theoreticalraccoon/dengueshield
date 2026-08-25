@@ -184,8 +184,15 @@ def _version():
 
 @st.cache_resource
 def _load_models(version):
-    """Every saved model behind one interface. Absent artifacts load as None."""
-    return predictor.load_all()
+    """Every saved model behind one interface. Absent artifacts load as None.
+
+    Returns the load failures alongside the models. `predictor.LOAD_ERRORS` is
+    populated as a side effect of loading, and this function is cached, so reading
+    it separately would give an empty dict on every rerun after the first - the
+    banner would appear once and then vanish while the app stayed broken.
+    """
+    models = predictor.load_all()
+    return models, dict(predictor.LOAD_ERRORS)
 
 
 @st.cache_data
@@ -222,7 +229,21 @@ def headline():
     return _headline(_version())
 
 
-M = load_models()
+M, MODEL_ERRORS = load_models()
+
+# A bundle that is present but unreadable used to raise here and take the whole
+# dashboard down - every screen, including the one that would have explained it.
+# It now degrades to the same "model unavailable" path as an untrained one, and
+# says which model and why, because "run the finalize script" is the wrong advice
+# when the artifact is on disk and the environment is what drifted.
+if MODEL_ERRORS:
+    st.error(
+        "Some models could not be loaded, so the screens that use them are "
+        "unavailable. The artifacts are present; the environment could not read "
+        "them. This is usually a dependency version that does not match the one "
+        "the models were trained under - see the floors in requirements.txt.\n\n"
+        + "\n\n".join(f"**{name}** — {why}" for name, why in sorted(MODEL_ERRORS.items()))
+    )
 
 # The emergence model's own operating point, not a display constant: it decides
 # which quiet districts are flagged. Both screens read the same number.

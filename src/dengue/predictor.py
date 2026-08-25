@@ -163,16 +163,34 @@ def from_bundle(name: str, bundle: dict, defaults: dict | None = None) -> Predic
     )
 
 
+# Why a bundle that IS on disk could not be read, keyed by predictor name.
+#
+# `load` returns None for both "never trained" and "present but unreadable", and
+# those need different messages: one is answered by running a finalize script and
+# the other by fixing the environment. Without somewhere to record the difference
+# the app tells a deploying user to retrain a model that is sitting right there.
+LOAD_ERRORS: dict[str, str] = {}
+
+
 def load(name: str) -> Predictor | None:
-    """Load a predictor by name, or None when its artifact is not present.
+    """Load a predictor by name, or None when its artifact cannot be used.
 
     Absent models are a legitimate state - a clean checkout ships no trained
     models - so this returns None rather than raising, and callers render their
     own "run finalize_x.py" message.
+
+    An unreadable model is treated the same way rather than being allowed to
+    propagate. A joblib bundle is a pickle, so it fails when the reading stack is
+    not compatible with the writing one - a numpy or scikit-learn floor that lets a
+    deployment resolve an older version is enough. Raising here takes down the whole
+    dashboard on startup, including the three screens that do not need this model
+    and the About page that would have explained the problem. The reason is recorded
+    in `LOAD_ERRORS` so the app can show it instead of a blank page.
     """
     if name not in FILENAMES:
         raise KeyError(f"unknown predictor {name!r}; expected one of {sorted(FILENAMES)}")
 
+    LOAD_ERRORS.pop(name, None)
     path = MODELS / FILENAMES[name]
     if not path.exists():
         return None
@@ -183,7 +201,16 @@ def load(name: str) -> Predictor | None:
         if medians.exists():
             defaults = json.loads(medians.read_text())
 
-    return from_bundle(name, joblib.load(path), defaults)
+    try:
+        bundle = joblib.load(path)
+    except Exception as exc:
+        # Deliberately broad: unpickling reaches arbitrary library code and can fail
+        # with AttributeError, ModuleNotFoundError, ValueError or a library-specific
+        # exception depending on which dependency drifted.
+        LOAD_ERRORS[name] = f"{type(exc).__name__}: {exc}"
+        return None
+
+    return from_bundle(name, bundle, defaults)
 
 
 def load_all() -> dict[str, Predictor | None]:

@@ -1,11 +1,22 @@
 # Runtime dependencies for the DengueShield Streamlit app.
 # Training-only packages (torch, shap, xgboost, duckdb, matplotlib) are deliberately
 # excluded - the app loads pre-trained models and pre-computed reports.
+#
+# The floors below are not cosmetic. models/*.joblib are pickles, and a pickle can
+# only be read by a stack compatible with the one that wrote it. These were written
+# under numpy 2.4, which serialises scalars as `numpy._core.multiarray.scalar`.
+# numpy 1.26 ships `numpy._core` as a stub module that exists but does NOT carry
+# that name, so it imports and then fails on attribute lookup - which is why a
+# `numpy>=1.26` floor let Streamlit Cloud resolve a stack that crashed the whole app
+# on startup with "Can't get attribute 'scalar'". Every floor here is therefore the
+# first version of that package which handles numpy 2 arrays.
+#
+# If the models are ever retrained on a different stack, re-check these.
 streamlit>=1.40
-pandas>=2.0
-numpy>=1.26
+pandas>=2.2.2
+numpy>=2.0
 plotly>=5.20
-joblib>=1.3
-scikit-learn>=1.4
-lightgbm>=4.3
-pyarrow>=15.0
+joblib>=1.4
+scikit-learn>=1.5
+lightgbm>=4.4
+pyarrow>=16.0
