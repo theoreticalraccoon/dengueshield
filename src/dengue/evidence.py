@@ -31,7 +31,7 @@ from dengue.config import MODELS, PROC, REPORTS
 
 def artifact_version(
     models: Path = MODELS, reports: Path = REPORTS, proc: Path = PROC
-) -> tuple[tuple[str, int], ...]:
+) -> tuple[tuple[str, int, int], ...]:
     """A key that changes whenever anything the app reads changes on disk.
 
     Streamlit caches on the value of a function's arguments, and every cached
@@ -48,17 +48,29 @@ def artifact_version(
     Deliberately one key for all of them rather than one per loader. The files
     change together (a retrain rewrites the bundle and the forecast in the same
     run), so splitting it would buy nothing and add a way for the two to disagree.
+
+    **What this can and cannot notice.** It stats; it does not read. Size is part of
+    the key as well as modification time, so a rewrite that changes either is
+    caught, and stat-ing 62 files costs microseconds where hashing the 30 MB behind
+    them would cost roughly a tenth of a second on every widget interaction.
+
+    What it cannot catch is a rewrite that changes neither - same byte count, and
+    quick enough that the filesystem timestamp has not ticked. That is not a real
+    risk for this app, where rewrites come from a retrain minutes or days apart, but
+    it is the reason the test for this asserts a changed *stat* rather than changed
+    *content*: asserting content would be asserting something a stat-based key
+    cannot deliver at a price worth paying.
     """
     roots = ((models, "*.joblib"), (reports, "*"), (proc, "*.parquet"))
-    out: list[tuple[str, int]] = []
+    out: list[tuple[str, int, int]] = []
     for root, pattern in roots:
         if not root.exists():
             continue
-        out.extend(
-            (path.name, path.stat().st_mtime_ns)
-            for path in sorted(root.glob(pattern))
-            if path.is_file()
-        )
+        for path in sorted(root.glob(pattern)):
+            if not path.is_file():
+                continue
+            stat = path.stat()
+            out.append((path.name, stat.st_mtime_ns, stat.st_size))
     return tuple(out)
 
 
