@@ -217,6 +217,71 @@ def load_all() -> dict[str, Predictor | None]:
     return {name: load(name) for name in FILENAMES}
 
 
+def portable(obj, _seen: set[int] | None = None):
+    """Strip numpy scalar OBJECTS out of a bundle, in place, returning it.
+
+    A saved bundle has to load in an environment this repo does not control, and a
+    pickle is only as portable as the types inside it. numpy 2 serialises a scalar
+    as `numpy._core.multiarray.scalar`; numpy 1.26 ships `numpy._core` as a stub
+    that imports but does not carry that name, so the read fails on attribute
+    lookup rather than on import. That is what took the deployed dashboard down on
+    startup: every one of the four bundles carried a handful of `np.float64` and
+    `np.int64` objects buried inside scikit-learn internals - isotonic bounds,
+    sigmoid coefficients, LightGBM class maps - and `model1_screening` is loaded
+    first, so it failed before any of the app's own error handling could run.
+
+    The values are identical either way; only the wrapper type differs. Replacing
+    them with the Python scalars they already equal costs nothing at inference -
+    `np.interp`, `np.clip` and dict lookups behave the same, and `hash(np.int64(0))
+    == hash(0)` so class-map keys keep resolving - and it removes the entire class
+    of numpy-version pickle breakage.
+
+    Numeric numpy ARRAYS are left untouched: they pickle through `numpy.ndarray`
+    and `numpy.dtype`, which exist under both major versions, and rewriting them
+    would be pointless and lossy. Object-dtype arrays ARE walked, because those hold
+    references rather than a numeric buffer and can contain scalars.
+
+    Tuples have to be rebuilt rather than mutated, and missing that is easy to do:
+    `Pipeline.steps` is a list of `(name, estimator)` TUPLES, so a first version of
+    this that handled dicts and lists walked straight past every estimator in every
+    pipeline and left the class maps exactly where they were.
+    """
+    import numpy as np
+
+    _seen = set() if _seen is None else _seen
+    if isinstance(obj, np.generic):
+        return obj.item()
+    # Identity guard only for containers: scalars above are converted by value, and
+    # small ints/floats are interned, so tracking them would skip real work.
+    if id(obj) in _seen:
+        return obj
+    _seen.add(id(obj))
+
+    if isinstance(obj, np.ndarray):
+        if obj.dtype == object:
+            for i, item in enumerate(obj.ravel()):
+                obj.ravel()[i] = portable(item, _seen)
+        return obj
+    if isinstance(obj, dict):
+        # Keys as well as values: LightGBM's `_class_map` is keyed by np.int64.
+        for key in list(obj):
+            value = portable(obj[key], _seen)
+            if isinstance(key, np.generic):
+                del obj[key]
+                obj[key.item()] = value
+            else:
+                obj[key] = value
+    elif isinstance(obj, list):
+        for i, item in enumerate(obj):
+            obj[i] = portable(item, _seen)
+    elif isinstance(obj, tuple):
+        return tuple(portable(item, _seen) for item in obj)
+    elif hasattr(obj, "__dict__"):
+        for name, value in vars(obj).items():
+            setattr(obj, name, portable(value, _seen))
+    return obj
+
+
 def save_bundle(path, *, model, features, threshold: float, metrics: dict | None = None, **extra):
     """Write a bundle in the canonical shape.
 
@@ -231,5 +296,8 @@ def save_bundle(path, *, model, features, threshold: float, metrics: dict | None
         "metrics": dict(metrics or {}),
         **extra,
     }
-    joblib.dump(bundle, path)
+    # Every artifact leaves here portable across numpy major versions. Doing it at
+    # the one write point means a future retrain cannot reintroduce the breakage by
+    # forgetting - see `portable`.
+    joblib.dump(portable(bundle), path)
     return bundle

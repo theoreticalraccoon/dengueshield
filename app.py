@@ -229,6 +229,34 @@ def headline():
     return _headline(_version())
 
 
+# Checked before the models are touched, and deliberately here in app.py rather
+# than inside the package.
+#
+# models/*.joblib are pickles written under numpy 2, and numpy 2 serialises arrays
+# through `numpy._core.multiarray._reconstruct`. numpy 1.26 ships `numpy._core` as
+# a stub that imports but does not carry that name, so joblib fails on attribute
+# lookup and Streamlit renders a redacted "app has encountered an error" page with
+# no indication of the cause. Two of the four bundles are scikit-learn pipelines
+# whose internal arrays cannot be rewritten without refitting, so this really is a
+# hard floor rather than something the loader can work around.
+#
+# It lives in app.py because Streamlit re-executes this file on every run while an
+# imported module can still be served from a stale __pycache__ on the host - which
+# is exactly what happened on the first two attempts to fix this, where a guard
+# added inside predictor.py never ran.
+if tuple(int(p) for p in np.__version__.split(".")[:2]) < (2, 0):
+    st.error(
+        f"**This deployment is running numpy {np.__version__}, and the saved models "
+        "need numpy 2.0 or newer.**\n\n"
+        "The models are pickles written under numpy 2; numpy 1.x cannot read them, "
+        "and the failure surfaces as a redacted `AttributeError` on startup.\n\n"
+        "`requirements.txt` already requires `numpy>=2.0`, so the environment here "
+        "is stale rather than misconfigured. On Streamlit Cloud: **Manage app → "
+        "Reboot app**, and if that does not clear it, delete the app and redeploy "
+        "so the dependencies are installed from scratch."
+    )
+    st.stop()
+
 M, MODEL_ERRORS = load_models()
 
 # A bundle that is present but unreadable used to raise here and take the whole
