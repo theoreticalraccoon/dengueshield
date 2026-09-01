@@ -1,12 +1,13 @@
 {
-  "refreshed_at": "2026-08-22 14:39:40.966268+00:00",
-  "latest_week": "2026-06-22 00:00:00",
-  "age_days": 61,
+  "enso_through": "2026-07",
+  "refreshed_at": "2026-09-01 10:35:41.985011+00:00",
+  "latest_week": "2026-06-29 00:00:00",
+  "age_days": 64,
   "hub_latest": "2026-05-11 00:00:00",
-  "wer_weeks_added": 156,
+  "wer_weeks_added": 182,
   "wer_validation": "PASS",
   "wer_exact_match_rate": 1.0,
   "weather_through": "2026-08-01 00:00:00",
-  "forecast_week": "2026-06-22",
+  "forecast_week": "2026-06-29",
   "districts": 26
 }

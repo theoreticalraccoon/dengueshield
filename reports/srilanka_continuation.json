@@ -1,11 +1,11 @@
 {
-  "pr_auc": 0.7253261670100631,
-  "roc_auc": 0.9442643696023799,
-  "pr_auc_calibrated": 0.7253261670100631,
-  "ece": 0.0230556463544785,
-  "ece_uncalibrated": 0.14020493647174542,
-  "brier": 0.05028351295367244,
-  "brier_uncalibrated": 0.09793364380756767,
+  "pr_auc": 0.7452760772715927,
+  "roc_auc": 0.9464856214724456,
+  "pr_auc_calibrated": 0.7452760772715927,
+  "ece": 0.022581392922401845,
+  "ece_uncalibrated": 0.14014650364613826,
+  "brier": 0.0502866588630735,
+  "brier_uncalibrated": 0.09797615486494582,
   "calibration_dev": {
     "ece_raw": 0.09542279768391852,
     "ece_calibrated": 0.001728791105637569,
@@ -15,9 +15,9 @@
     "pr_auc_calibrated": 0.8544242615888494,
     "n_calibration_rows": 10842
   },
-  "baseline_persistence_pr_auc": 0.4688088350446656,
+  "baseline_persistence_pr_auc": 0.48800158136899685,
   "threshold": 0.4062509091026619,
   "horizon_weeks": 2,
   "outbreak_inc": 9.9,
-  "n_test": 3247
+  "n_test": 3273
 }
