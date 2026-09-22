@@ -1,13 +1,13 @@
 {
   "enso_through": "2026-08",
-  "refreshed_at": "2026-09-15 10:34:17.209061+00:00",
-  "latest_week": "2026-07-20 00:00:00",
-  "age_days": 57,
+  "refreshed_at": "2026-09-22 10:25:14.264289+00:00",
+  "latest_week": "2026-08-03 00:00:00",
+  "age_days": 50,
   "hub_latest": "2026-05-11 00:00:00",
-  "wer_weeks_added": 260,
+  "wer_weeks_added": 312,
   "wer_validation": "PASS",
   "wer_exact_match_rate": 1.0,
-  "weather_through": "2026-08-01 00:00:00",
-  "forecast_week": "2026-07-20",
+  "weather_through": "2026-08-10 00:00:00",
+  "forecast_week": "2026-08-03",
   "districts": 26
 }

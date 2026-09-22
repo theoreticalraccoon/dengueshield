@@ -1,5 +1,4 @@
 district,week_start,cases
-Ampara,2026-06-15,24
 Ampara,2026-06-22,55
 Ampara,2026-06-29,55
 Ampara,2026-07-06,56
@@ -11,7 +10,7 @@ Ampara,2026-08-10,19
 Ampara,2026-08-17,11
 Ampara,2026-08-24,23
 Ampara,2026-08-31,11
-Anuradhapura,2026-06-15,51
+Ampara,2026-09-07,10
 Anuradhapura,2026-06-22,95
 Anuradhapura,2026-06-29,87
 Anuradhapura,2026-07-06,70
@@ -23,7 +22,7 @@ Anuradhapura,2026-08-10,37
 Anuradhapura,2026-08-17,42
 Anuradhapura,2026-08-24,15
 Anuradhapura,2026-08-31,30
-Badulla,2026-06-15,56
+Anuradhapura,2026-09-07,11
 Badulla,2026-06-22,97
 Badulla,2026-06-29,128
 Badulla,2026-07-06,172
@@ -35,7 +34,7 @@ Badulla,2026-08-10,69
 Badulla,2026-08-17,41
 Badulla,2026-08-24,25
 Badulla,2026-08-31,23
-Batticaloa,2026-06-15,46
+Badulla,2026-09-07,25
 Batticaloa,2026-06-22,46
 Batticaloa,2026-06-29,70
 Batticaloa,2026-07-06,63
@@ -47,7 +46,7 @@ Batticaloa,2026-08-10,33
 Batticaloa,2026-08-17,24
 Batticaloa,2026-08-24,17
 Batticaloa,2026-08-31,21
-Colombo,2026-06-15,1296
+Batticaloa,2026-09-07,13
 Colombo,2026-06-22,1174
 Colombo,2026-06-29,1676
 Colombo,2026-07-06,1628
@@ -59,7 +58,7 @@ Colombo,2026-08-10,623
 Colombo,2026-08-17,442
 Colombo,2026-08-24,295
 Colombo,2026-08-31,222
-Galle,2026-06-15,250
+Colombo,2026-09-07,207
 Galle,2026-06-22,247
 Galle,2026-06-29,407
 Galle,2026-07-06,438
@@ -71,7 +70,7 @@ Galle,2026-08-10,121
 Galle,2026-08-17,92
 Galle,2026-08-24,54
 Galle,2026-08-31,47
-Gampaha,2026-06-15,1257
+Galle,2026-09-07,69
 Gampaha,2026-06-22,1750
 Gampaha,2026-06-29,1867
 Gampaha,2026-07-06,1843
@@ -83,7 +82,7 @@ Gampaha,2026-08-10,606
 Gampaha,2026-08-17,369
 Gampaha,2026-08-24,271
 Gampaha,2026-08-31,224
-Hambanthota,2026-06-15,184
+Gampaha,2026-09-07,218
 Hambanthota,2026-06-22,144
 Hambanthota,2026-06-29,220
 Hambanthota,2026-07-06,180
@@ -95,7 +94,7 @@ Hambanthota,2026-08-10,51
 Hambanthota,2026-08-17,44
 Hambanthota,2026-08-24,15
 Hambanthota,2026-08-31,21
-Jaffna,2026-06-15,23
+Hambanthota,2026-09-07,22
 Jaffna,2026-06-22,26
 Jaffna,2026-06-29,55
 Jaffna,2026-07-06,49
@@ -107,7 +106,7 @@ Jaffna,2026-08-10,9
 Jaffna,2026-08-17,16
 Jaffna,2026-08-24,17
 Jaffna,2026-08-31,19
-Kalmune,2026-06-15,31
+Jaffna,2026-09-07,22
 Kalmune,2026-06-22,43
 Kalmune,2026-06-29,71
 Kalmune,2026-07-06,45
@@ -119,7 +118,7 @@ Kalmune,2026-08-10,59
 Kalmune,2026-08-17,29
 Kalmune,2026-08-24,31
 Kalmune,2026-08-31,33
-Kalutara,2026-06-15,452
+Kalmune,2026-09-07,31
 Kalutara,2026-06-22,463
 Kalutara,2026-06-29,688
 Kalutara,2026-07-06,617
@@ -131,7 +130,7 @@ Kalutara,2026-08-10,167
 Kalutara,2026-08-17,136
 Kalutara,2026-08-24,94
 Kalutara,2026-08-31,72
-Kandy,2026-06-15,440
+Kalutara,2026-09-07,73
 Kandy,2026-06-22,486
 Kandy,2026-06-29,639
 Kandy,2026-07-06,665
@@ -143,7 +142,7 @@ Kandy,2026-08-10,273
 Kandy,2026-08-17,188
 Kandy,2026-08-24,152
 Kandy,2026-08-31,159
-Kegalle,2026-06-15,131
+Kandy,2026-09-07,174
 Kegalle,2026-06-22,192
 Kegalle,2026-06-29,186
 Kegalle,2026-07-06,185
@@ -155,7 +154,7 @@ Kegalle,2026-08-10,109
 Kegalle,2026-08-17,83
 Kegalle,2026-08-24,65
 Kegalle,2026-08-31,58
-Kilinochchi,2026-06-15,3
+Kegalle,2026-09-07,69
 Kilinochchi,2026-06-22,5
 Kilinochchi,2026-06-29,2
 Kilinochchi,2026-07-06,11
@@ -167,7 +166,7 @@ Kilinochchi,2026-08-10,8
 Kilinochchi,2026-08-17,1
 Kilinochchi,2026-08-24,0
 Kilinochchi,2026-08-31,0
-Kurunegala,2026-06-15,95
+Kilinochchi,2026-09-07,3
 Kurunegala,2026-06-22,184
 Kurunegala,2026-06-29,258
 Kurunegala,2026-07-06,212
@@ -179,7 +178,7 @@ Kurunegala,2026-08-10,68
 Kurunegala,2026-08-17,49
 Kurunegala,2026-08-24,38
 Kurunegala,2026-08-31,29
-Mannar,2026-06-15,0
+Kurunegala,2026-09-07,38
 Mannar,2026-06-22,7
 Mannar,2026-06-29,10
 Mannar,2026-07-06,7
@@ -191,7 +190,7 @@ Mannar,2026-08-10,1
 Mannar,2026-08-17,2
 Mannar,2026-08-24,1
 Mannar,2026-08-31,0
-Matale,2026-06-15,48
+Mannar,2026-09-07,0
 Matale,2026-06-22,42
 Matale,2026-06-29,79
 Matale,2026-07-06,65
@@ -203,7 +202,7 @@ Matale,2026-08-10,30
 Matale,2026-08-17,15
 Matale,2026-08-24,11
 Matale,2026-08-31,10
-Matara,2026-06-15,379
+Matale,2026-09-07,12
 Matara,2026-06-22,364
 Matara,2026-06-29,627
 Matara,2026-07-06,462
@@ -215,7 +214,7 @@ Matara,2026-08-10,92
 Matara,2026-08-17,57
 Matara,2026-08-24,43
 Matara,2026-08-31,41
-Monaragala,2026-06-15,89
+Matara,2026-09-07,38
 Monaragala,2026-06-22,88
 Monaragala,2026-06-29,96
 Monaragala,2026-07-06,97
@@ -227,7 +226,7 @@ Monaragala,2026-08-10,25
 Monaragala,2026-08-17,25
 Monaragala,2026-08-24,17
 Monaragala,2026-08-31,11
-Mullaitivu,2026-06-15,0
+Monaragala,2026-09-07,11
 Mullaitivu,2026-06-22,1
 Mullaitivu,2026-06-29,0
 Mullaitivu,2026-07-06,5
@@ -239,7 +238,7 @@ Mullaitivu,2026-08-10,3
 Mullaitivu,2026-08-17,2
 Mullaitivu,2026-08-24,0
 Mullaitivu,2026-08-31,0
-NuwaraEliya,2026-06-15,50
+Mullaitivu,2026-09-07,1
 NuwaraEliya,2026-06-22,50
 NuwaraEliya,2026-06-29,88
 NuwaraEliya,2026-07-06,61
@@ -251,7 +250,7 @@ NuwaraEliya,2026-08-10,31
 NuwaraEliya,2026-08-17,18
 NuwaraEliya,2026-08-24,10
 NuwaraEliya,2026-08-31,17
-Polonnaruwa,2026-06-15,43
+NuwaraEliya,2026-09-07,14
 Polonnaruwa,2026-06-22,58
 Polonnaruwa,2026-06-29,66
 Polonnaruwa,2026-07-06,85
@@ -263,7 +262,7 @@ Polonnaruwa,2026-08-10,19
 Polonnaruwa,2026-08-17,15
 Polonnaruwa,2026-08-24,4
 Polonnaruwa,2026-08-31,8
-Puttalam,2026-06-15,133
+Polonnaruwa,2026-09-07,12
 Puttalam,2026-06-22,171
 Puttalam,2026-06-29,155
 Puttalam,2026-07-06,192
@@ -275,7 +274,7 @@ Puttalam,2026-08-10,65
 Puttalam,2026-08-17,34
 Puttalam,2026-08-24,38
 Puttalam,2026-08-31,37
-Ratnapura,2026-06-15,159
+Puttalam,2026-09-07,33
 Ratnapura,2026-06-22,193
 Ratnapura,2026-06-29,329
 Ratnapura,2026-07-06,380
@@ -287,7 +286,7 @@ Ratnapura,2026-08-10,86
 Ratnapura,2026-08-17,58
 Ratnapura,2026-08-24,54
 Ratnapura,2026-08-31,55
-Trincomalee,2026-06-15,22
+Ratnapura,2026-09-07,44
 Trincomalee,2026-06-22,24
 Trincomalee,2026-06-29,47
 Trincomalee,2026-07-06,22
@@ -299,7 +298,7 @@ Trincomalee,2026-08-10,15
 Trincomalee,2026-08-17,8
 Trincomalee,2026-08-24,3
 Trincomalee,2026-08-31,5
-Vavuniya,2026-06-15,5
+Trincomalee,2026-09-07,5
 Vavuniya,2026-06-22,4
 Vavuniya,2026-07-13,11
 Vavuniya,2026-07-20,8
@@ -309,3 +308,4 @@ Vavuniya,2026-08-10,9
 Vavuniya,2026-08-17,1
 Vavuniya,2026-08-24,3
 Vavuniya,2026-08-31,0
+Vavuniya,2026-09-07,1

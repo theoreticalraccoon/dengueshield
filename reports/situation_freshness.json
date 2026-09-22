@@ -1,10 +1,10 @@
 {
   "source": "National Dengue Control Unit, Weekly Dengue Update",
-  "refreshed_at": "2026-09-15 10:35:14.635172+00:00",
-  "latest_week_start": "2026-08-31",
-  "latest_week_end": "2026-09-06",
+  "refreshed_at": "2026-09-22 10:26:22.833881+00:00",
+  "latest_week_start": "2026-09-07",
+  "latest_week_end": "2026-09-13",
   "age_days": 15,
   "weeks_parsed": 12,
   "self_check": "PASS",
-  "national_total": 1153
+  "national_total": 1156
 }
